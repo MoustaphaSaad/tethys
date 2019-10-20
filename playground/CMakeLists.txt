@@ -13,6 +13,7 @@ add_executable(playground
 target_link_libraries(playground
 	PUBLIC
 	MoustaphaSaad::mn
+	MoustaphaSaad::vm
 )
 
 # make it reflect the same structure as the one on disk
