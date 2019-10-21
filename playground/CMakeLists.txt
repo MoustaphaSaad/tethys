@@ -14,6 +14,7 @@ target_link_libraries(playground
 	PUBLIC
 	MoustaphaSaad::mn
 	MoustaphaSaad::vm
+	MoustaphaSaad::as
 )
 
 # make it reflect the same structure as the one on disk
