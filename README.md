@@ -424,3 +424,191 @@ line: 5, col: 13, kind: "R1" str: "r1"
 line: 6, col: 2, kind: "HALT" str: "halt"
 line: 7, col: 1, kind: "END" str: "end"
 ```
+
+### Day-3
+Today's theme is testing, one of the most things i hate is adding a new feature and suddenly break old code
+
+first of all let's add a cli interface to our assembler that can only scan files for now and print the scanned tokens
+the user should write `tas scan path/to/file` to scan the file
+
+#### Command Line Arguments
+I use a simple scheme for command line arguments
+`program.exe [command] [flags|OPTIONAL] [targets]`
+commands tend to be things like, "scan", "parse", etc..., and obviously targets are the files we are running these commands on
+currently we only have 2 commands, let's do the command line argument parsing
+
+```C++
+const char* HELP_MSG = R"MSG(tas tethys assembler
+tas [command] [targets] [flags]
+COMMANDS:
+  help: prints this message
+    'tas help'
+  scan: scans the file
+    'tas scan path/to/file.zy'
+)MSG";
+
+inline static void
+print_help()
+{
+	mn::print("{}\n", HELP_MSG);
+}
+
+struct Args
+{
+	mn::Str command;
+	mn::Buf<mn::Str> targets;
+	mn::Buf<mn::Str> flags;
+};
+
+inline static void
+args_parse(Args& self, int argc, char** argv)
+{
+	// if the user provides no argument then there's something
+	if(argc < 2)
+	{
+		print_help();
+		return;
+	}
+
+	// parse the command
+	self.command = mn::str_from_c(argv[1]);
+	for(size_t i = 2; i < size_t(argc); ++i)
+	{
+		// filter the flags which should start with '--' or '-'
+		if(mn::str_prefix(argv[i], "--"))
+			buf_push(self.flags, mn::str_from_c(argv[i] + 2));
+		else if(mn::str_prefix(argv[i], "-"))
+			buf_push(self.flags, mn::str_from_c(argv[i] + 1));
+		// Otherwise this is a target
+		else
+			buf_push(self.targets, mn::str_from_c(argv[i]));
+	}
+}
+
+// Check if a flag is set
+inline static bool
+args_has_flag(Args& self, const char* search)
+{
+	for(const mn::Str& f: self.flags)
+		if(f == search)
+			return true;
+	return false;
+}
+```
+
+Now that we can parse the command line arguments let's check our main function
+
+```C++
+if(args.command == "help")
+{
+	print_help();
+	return 0;
+}
+else if(args.command == "scan")
+{
+	if(args.targets.count == 0)
+	{
+		mn::printerr("no input files\n");
+		return -1;
+	}
+	else if(args.targets.count > 1)
+	{
+		mn::printerr("multiple input files are not supported yet\n");
+		return -1;
+	}
+
+	if(mn::path_is_file(args.targets[0]) == false)
+	{
+		mn::printerr("'{}' is not a file \n", args.targets[0]);
+		return -1;
+	}
+
+	auto src = as::src_from_file(args.targets[0].ptr);
+	mn_defer(as::src_free(src));
+
+	// Try to scan the file and print the errors on failure
+	if(as::scan(src) == false)
+	{
+		mn::print("{}", as::src_errs_dump(src, mn::memory::tmp()));
+		return -1;
+	}
+
+	// print tokens on success
+	mn::print("{}", as::src_tkns_dump(src, mn::memory::tmp()));
+	return 0;
+}
+```
+TADA, now we have command line interface for our assembler, that we'll use to generate test cases
+
+#### Unit tests
+Now, let's automate the tests, our scheme is simple we'll put the scan test cases in a test/scan folder
+each test case consists of a input file and an expected output file
+```
+- unittest
+	- test
+		- scan
+			- case-01.in
+			- case-01.out
+			- case-02.in
+			- case-03.out
+		- parse
+			- case-01.in
+			- case-01.out
+```
+in the unittests we'll iterate over the files in scan folder and perform a scan action on them and compare the two outputs
+
+Let's do the code
+```C++
+// Get the files in the test/scan folder
+auto files = mn::path_entries(TEST_DIR, mn::memory::tmp());
+
+// sort the files by name
+std::sort(begin(files), end(files), [](const auto& a, const auto& b) { return a.name < b.name; });
+
+// loop over the files
+for(size_t i = 2; i < files.count; i += 2)
+{
+	// ignore folders
+	if (files[i].kind == mn::Path_Entry::KIND_FOLDER)
+		continue;
+
+	// get the input and output
+	auto input = mn::path_join(mn::str_tmp(), TEST_DIR, "scan", files[i].name);
+	auto output = mn::path_join(mn::str_tmp(), TEST_DIR, "scan", files[i + 1].name);
+	auto expected = file_content_normalized(output);
+	auto answer = mn::str_tmp();
+
+	// perform the scan
+	auto unit = as::src_from_file(input.ptr);
+	mn_defer(as::src_free(unit));
+
+	if (as::scan(unit) == false)
+		answer = as::src_errs_dump(unit, mn::memory::tmp());
+	else
+		answer = as::src_tkns_dump(unit, mn::memory::tmp());
+
+	// compare the results
+	if(expected != answer)
+	{
+		// print data on error
+		mn::printerr("TEST CASE: input '{}', output '{}'\n", input, output);
+		mn::printerr("EXPECTED\n{}\nFOUND\n{}", expected, answer);
+	}
+	CHECK(expected == answer);
+}
+```
+
+Now it's time to generate our first test case, let's write the simple add program we did in the playground in a file and put in the "test/scan/simple_add.in" folder
+```
+proc main
+	i32.load r0 -1
+	i32.load r1 2
+	i32.add r0 r1
+	halt
+end
+```
+then let's invoke the command line tool to get the output and save it to a file "test/scan/simple_add.out"
+`tas scan test/scan/simple_add.in > test/scan/simple_add.out`
+and if we run our unittest program it should check this test case, we can also do a case that generates an error
+
+Now we can add more tests as we go and it will be as easy as writing the tests and what we expect and everything from now on is automated
