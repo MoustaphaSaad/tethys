@@ -612,3 +612,88 @@ then let's invoke the command line tool to get the output and save it to a file 
 and if we run our unittest program it should check this test case, we can also do a case that generates an error
 
 Now we can add more tests as we go and it will be as easy as writing the tests and what we expect and everything from now on is automated
+
+### Day-4
+Today we'll start building the parser, first let's define what's an instruction?
+our instructions consists of `opcode dst src` this is the general structure of our assembly, this should be simple
+```C++
+struct Ins
+{
+	// opcode token
+	Tkn op;
+	Tkn dst;
+	Tkn src;
+};
+```
+
+Now a procedure is just a list of instructions
+```C++
+struct Proc
+{
+	// procedure name
+	Tkn name;
+	// procedure body
+	mn::Buf<Ins> ins;
+};
+```
+
+Now let's do the parsing, first let's parse a procedure
+```C++
+inline static Proc
+parser_proc(Parser* self)
+{
+	// we must find a 'proc' keyword or we'll issue an error
+	parser_eat_must(self, Tkn::KIND_KEYWORD_PROC);
+	auto proc = proc_new();
+
+	// then we must find the name of the proc or we'll issue an error
+	proc.name = parser_eat_must(self, Tkn::KIND_ID);
+
+	// we should loop until we found the 'end' keyword
+	while (parser_look_kind(self, Tkn::KIND_KEYWORD_END) == false)
+	{
+		// parse a single instructions
+		auto ins = parser_ins(self);
+		if (ins.op)
+			mn::buf_push(proc.ins, ins);
+		else
+			break;
+	}
+
+	// at the end we should be find the 'end' keyword
+	parser_eat_kind(self, Tkn::KIND_KEYWORD_END);
+
+	return proc;
+}
+```
+
+Now parsing a instruction should be as simple as this
+```C++
+inline static Ins
+parser_ins(Parser* self)
+{
+	Ins ins{};
+
+	Tkn op = parser_look(self);
+	if (is_load(op))
+	{
+		ins.op = parser_eat(self);
+		ins.dst = parser_reg(self);
+		ins.src = parser_const(self);
+	}
+	else if (is_add(op))
+	{
+		ins.op = parser_eat(self);
+		ins.dst = parser_reg(self);
+		ins.src = parser_reg(self);
+	}
+	else if(op.kind == Tkn::KIND_KEYWORD_HALT)
+	{
+		ins.op = parser_eat(self);
+	}
+
+	return ins;
+}
+```
+
+and that's it for today
