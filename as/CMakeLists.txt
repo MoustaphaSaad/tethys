@@ -9,12 +9,14 @@ set(HEADER_FILES
 	include/as/Err.h
 	include/as/Scan.h
 	include/as/Src.h
+	include/as/Parse_Tree.h
 )
 
 # list the source files
 set(SOURCE_FILES
 	src/as/Scan.cpp
 	src/as/Src.cpp
+	src/as/Parse.cpp
 )
 
 

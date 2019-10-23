@@ -4,6 +4,7 @@
 #include "as/Err.h"
 #include "as/Rng.h"
 #include "as/Tkn.h"
+#include "as/Parse_Tree.h"
 
 #include <mn/Str.h>
 #include <mn/Buf.h>
@@ -19,6 +20,7 @@ namespace as
 		mn::Str_Intern str_table;
 		mn::Buf<Err> errs;
 		mn::Buf<Tkn> tkns;
+		mn::Buf<Proc> procs;
 	};
 
 	AS_EXPORT Src*

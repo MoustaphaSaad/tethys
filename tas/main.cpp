@@ -5,6 +5,7 @@
 
 #include <as/Src.h>
 #include <as/Scan.h>
+#include <as/Parse.h>
 
 const char* HELP_MSG = R"MSG(tas tethys assembler
 tas [command] [targets] [flags]
@@ -13,6 +14,8 @@ COMMANDS:
     'tas help'
   scan: scans the file
     'tas scan path/to/file.zy'
+  parse: parses the file
+    'tas parse path/to/file.zy'
 )MSG";
 
 inline static void
@@ -117,6 +120,43 @@ main(int argc, char** argv)
 		}
 
 		mn::print("{}", as::src_tkns_dump(src, mn::memory::tmp()));
+		return 0;
+	}
+	else if(args.command == "parse")
+	{
+		if(args.targets.count == 0)
+		{
+			mn::printerr("no input files\n");
+			return -1;
+		}
+		else if(args.targets.count > 1)
+		{
+			mn::printerr("multiple input files are not supported yet\n");
+			return -1;
+		}
+
+		if(mn::path_is_file(args.targets[0]) == false)
+		{
+			mn::printerr("'{}' is not a file \n", args.targets[0]);
+			return -1;
+		}
+
+		auto src = as::src_from_file(args.targets[0].ptr);
+		mn_defer(as::src_free(src));
+
+		if(as::scan(src) == false)
+		{
+			mn::printerr("{}", as::src_errs_dump(src, mn::memory::tmp()));
+			return -1;
+		}
+
+		if(as::parse(src) == false)
+		{
+			mn::printerr("{}", as::src_errs_dump(src, mn::memory::tmp()));
+			return -1;
+		}
+
+		mn::print("{}", as::proc_dump(src, mn::memory::tmp()));
 		return 0;
 	}
 	return 0;

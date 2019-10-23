@@ -1,0 +1,6 @@
+PROC main
+i32.load r0 -1
+i32.load r1 2
+i32.add r0 r1
+halt  
+END
