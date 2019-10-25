@@ -8,6 +8,8 @@
 
 #include <as/Src.h>
 #include <as/Scan.h>
+#include <as/Parse.h>
+#include <as/Gen.h>
 
 void
 vm_play()
@@ -60,7 +62,20 @@ end
 		return;
 	}
 
-	mn::print("{}", as::src_tkns_dump(src, mn::memory::tmp()));
+	if(as::parse(src) == false)
+	{
+		mn::printerr("{}", as::src_errs_dump(src, mn::memory::tmp()));
+		return;
+	}
+
+	auto bytecode = as::proc_gen(src->procs[0]);
+	mn_defer(mn::buf_free(bytecode));
+
+	auto cpu = vm::core_new();
+	while (cpu.state == vm::Core::STATE_OK)
+		vm::core_ins_execute(cpu, bytecode);
+
+	mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
 }
 
 int
