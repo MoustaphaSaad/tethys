@@ -697,3 +697,128 @@ parser_ins(Parser* self)
 ```
 
 and that's it for today
+
+### Day-05
+Instructions Assemble!
+
+Today we'll start the bytecode generation pass of our assembler
+
+we'll start with `proc_gen` function which generate the bytecode for an entire proc
+```C++
+mn::Buf<uint8_t>
+proc_gen(const Proc& proc, mn::Allocator allocator)
+{
+	auto out = mn::buf_with_allocator<uint8_t>(allocator);
+
+	for(const auto& ins: proc.ins)
+		ins_gen(ins, out);
+
+	return out;
+}
+```
+Looks simple, in order to generate the entire proc you have to generate its instructions
+
+now let's have a look at `ins_gen`
+```C++
+inline static void
+ins_gen(const Ins& ins, mn::Buf<uint8_t>& out)
+{
+	switch(ins.op.kind)
+	{
+	...
+	case Tkn::KIND_KEYWORD_I32_LOAD:
+	{
+		vm::push8(out, uint8_t(vm::Op_LOAD32));
+		reg_gen(ins.dst, out);
+
+		// convert the string value to int32_t
+		int32_t c = 0;
+		// reads returns the number of the parsed items
+		size_t res = mn::reads(ins.src.str, c);
+		// assert that we parsed the only item we have
+		assert(res == 1);
+		vm::push32(out, uint32_t(c));
+		break;
+	}
+
+	...
+
+	case Tkn::KIND_KEYWORD_I32_ADD:
+	case Tkn::KIND_KEYWORD_U32_ADD:
+		vm::push8(out, uint8_t(vm::Op_ADD32));
+		reg_gen(ins.dst, out);
+		reg_gen(ins.src, out);
+		break;
+
+	...
+
+	case Tkn::KIND_KEYWORD_HALT:
+		vm::push8(out, uint8_t(vm::Op_HALT));
+		break;
+
+	default:
+		assert(false && "unreachable");
+		vm::push8(out, uint8_t(vm::Op_IGL));
+		break;
+	}
+}
+```
+
+and the final piece of the code is `reg_gen` which basically emits the correct byte for each register
+```C++
+inline static void
+reg_gen(const Tkn& r, mn::Buf<uint8_t>& out)
+{
+	switch(r.kind)
+	{
+	case Tkn::KIND_KEYWORD_R0:
+		vm::push8(out, uint8_t(vm::Reg_R0));
+		break;
+	case Tkn::KIND_KEYWORD_R1:
+		vm::push8(out, uint8_t(vm::Reg_R1));
+		break;
+	...
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+}
+```
+
+TADA, now you have your own assembler that can generate bytecode which you can run on your own virtual machine.
+
+Now let's play with our assembler
+```C++
+auto src = as::src_from_str(R"""(
+proc main
+	i32.load r0 -1
+	i32.load r1 2
+	i32.add r0 r1
+	halt
+end
+)""");
+mn_defer(as::src_free(src));
+
+if(as::scan(src) == false)
+{
+	mn::printerr("{}", as::src_errs_dump(src, mn::memory::tmp()));
+	return;
+}
+
+if(as::parse(src) == false)
+{
+	mn::printerr("{}", as::src_errs_dump(src, mn::memory::tmp()));
+	return;
+}
+
+auto bytecode = as::proc_gen(src->procs[0]);
+mn_defer(mn::buf_free(bytecode));
+
+auto cpu = vm::core_new();
+while (cpu.state == vm::Core::STATE_OK)
+	vm::core_ins_execute(cpu, bytecode);
+
+mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
+```
+
+It works just like the version we did in `Day-01` but this time we didn't assemble the bytes ourselves, we wrote a program to do it for us

@@ -10,6 +10,8 @@ set(HEADER_FILES
 	include/as/Scan.h
 	include/as/Src.h
 	include/as/Parse_Tree.h
+	include/as/Parse.h
+	include/as/Gen.h
 )
 
 # list the source files
@@ -17,6 +19,7 @@ set(SOURCE_FILES
 	src/as/Scan.cpp
 	src/as/Src.cpp
 	src/as/Parse.cpp
+	src/as/Gen.cpp
 )
 
 
@@ -31,6 +34,7 @@ add_library(MoustaphaSaad::as ALIAS as)
 target_link_libraries(as
 	PUBLIC
 		MoustaphaSaad::mn
+		MoustaphaSaad::vm
 )
 
 # make it reflect the same structure as the one on disk
