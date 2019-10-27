@@ -822,3 +822,216 @@ mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
 ```
 
 It works just like the version we did in `Day-01` but this time we didn't assemble the bytes ourselves, we wrote a program to do it for us
+
+### Day-06
+Today we'll start creating our own loader, now all we can do is convert assembly from string format
+to binary format the vm can grok, but we'll need to write this binary format to disk and load it and execute it at a later time just like any executable
+
+first let's specify our package, our package is just a bunch of procedures
+```C++
+struct Pkg
+{
+	mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
+};
+```
+then we'll need to extend our assembler to generate a package from an assembly file, it's simple we just use the proc_gen as usual but this time we put the proc inside the package struct we defined above
+```C++
+vm::Pkg
+src_gen(Src* src)
+{
+	auto pkg = vm::pkg_new();
+	for(size_t i = 0; i < src->procs.count; ++i)
+	{
+		auto name = src->procs[i].name.str;
+		auto code = proc_gen(src->procs[i]);
+		vm::pkg_proc_add(pkg, name, code);
+	}
+	return pkg;
+}
+```
+
+#### Bytecode file format
+Now we'll need to write this package to disk, each OS has its own complicated format, windows has Portable Executable (PE), linux has ELF, etc..., they are complicated beasts we'll go with a simple format
+
+our file format consists of the following schema
+```
+File:
+	[Number of procs in file: uint32_t]
+	[Procs]
+Proc:
+	[Proc name length: uint32_t]
+	[Proc name bytes]
+	[Bytecode length: uint32_t]
+	[Bytecode]
+```
+
+let's have a look at our save function
+```C++
+void
+pkg_save(const Pkg& self, const mn::Str& filename)
+{
+	// open file
+	auto f = mn::file_open(filename, mn::IO_MODE::WRITE, mn::OPEN_MODE::CREATE_OVERWRITE);
+	assert(f != nullptr);
+	mn_defer(mn::file_close(f));
+
+	// write procs count to the file
+	uint32_t len = uint32_t(self.procs.count);
+	mn::stream_write(f, mn::block_from(len));
+
+	// write each proc
+	for(auto it = mn::map_begin(self.procs);
+		it != mn::map_end(self.procs);
+		it = mn::map_next(self.procs, it))
+	{
+		// first write proc name
+		write_string(f, it->key);
+		// then write proc bytecode
+		write_bytes(f, it->value);
+	}
+}
+
+inline static void
+write_string(mn::File f, const mn::Str& str)
+{
+	// to write a string you just write its length as uint32_t
+	uint32_t len = uint32_t(str.count);
+	mn::stream_write(f, mn::block_from(len));
+	// then you write the string bytes
+	mn::stream_write(f, mn::block_from(str));
+}
+
+inline static void
+write_bytes(mn::File f, const mn::Buf<uint8_t>& bytes)
+{
+	// to write bytecode you just write its length as uint32_t
+	uint32_t len = uint32_t(bytes.count);
+	mn::stream_write(f, mn::block_from(len));
+	// then you write the bytecode bytes
+	mn::stream_write(f, mn::block_from(bytes));
+}
+```
+
+Now that we can save the package to disk, we'll of course need to load it back to memory
+let's do that
+```C++
+Pkg
+pkg_load(const mn::Str& filename)
+{
+	auto self = pkg_new();
+
+	// open a file
+	auto f = mn::file_open(filename, mn::IO_MODE::READ, mn::OPEN_MODE::OPEN_ONLY);
+	assert(f != nullptr);
+	mn_defer(mn::file_close(f));
+
+	// read procs count
+	uint32_t len = 0;
+	mn::stream_read(f, mn::block_from(len));
+	mn::map_reserve(self.procs, len);
+
+	// read each proc
+	for(size_t i = 0; i < len; ++i)
+	{
+		// first read the name
+		auto name = read_string(f);
+		// then read the bytecode
+		auto bytes = read_bytes(f);
+		// now add this proc to the package
+		pkg_proc_add(self, name, bytes);
+	}
+
+	return self;
+}
+
+inline static mn::Str
+read_string(mn::File f)
+{
+	// first read the string length
+	uint32_t len = 0;
+	mn::stream_read(f, mn::block_from(len));
+
+	// then read the string bytes
+	auto v = mn::str_new();
+	mn::str_resize(v, len);
+	mn::stream_read(f, mn::block_from(v));
+
+	return v;
+}
+
+inline static mn::Buf<uint8_t>
+read_bytes(mn::File f)
+{
+	// first read bytecode length
+	uint32_t len = 0;
+	mn::stream_read(f, mn::block_from(len));
+
+	// then read the bytecode bytes
+	auto v = mn::buf_with_count<uint8_t>(len);
+	mn::stream_read(f, mn::block_from(v));
+
+	return v;
+}
+```
+
+#### Build command
+Now that we can generate package from assembly source code and we can save this data to disk and load it from disk, let's add two commands to our assembler.
+
+first let's do the build command
+```
+build: builds the file
+  'tas build -o pkg_name.zyc path/to/file.zy'
+```
+
+to support this command we just copy the same code we do for parsing and append the last three lines to it
+```C++
+auto src = as::src_from_file(args.targets[0].ptr);
+mn_defer(as::src_free(src));
+
+if(as::scan(src) == false)
+{
+	mn::printerr("{}", as::src_errs_dump(src, mn::memory::tmp()));
+	return -1;
+}
+
+if(as::parse(src) == false)
+{
+	mn::printerr("{}", as::src_errs_dump(src, mn::memory::tmp()));
+	return -1;
+}
+
+// generate package from our assembly src
+auto pkg = as::src_gen(src);
+mn_defer(vm::pkg_free(pkg));
+
+// then save this package to disk
+vm::pkg_save(pkg, args.out_name);
+```
+
+#### Run command
+now that we can assemble files to bytecode, we need to do what every OS does when you run any executable, you simply invoke the OS loader which reads the executable file format and loads the instructions into memory then starts the main function, it's time to add the run command which can load and run the assembled bytecode
+```
+run: loads and runs the specified package
+  'tas run path/to/pkg_name.zyc'
+```
+
+```C++
+// first read the package from disk
+auto pkg = vm::pkg_load(args.targets[0].ptr);
+mn_defer(vm::pkg_free(pkg));
+
+// search for and load the main proc
+auto code = vm::pkg_load_proc(pkg, "main");
+mn_defer(mn::buf_free(code));
+
+// execute the main proc
+auto cpu = vm::core_new();
+while (cpu.state == vm::Core::STATE_OK)
+	vm::core_ins_execute(cpu, code);
+
+// print the R0 register and you'll get the same result we have seen before
+// R0 = 1
+mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
+```
+
+and that's it for today, now we have a vm along with the assembler, binary file format and the loader to run the bytecode. I think next we can extend our vm with new instructions

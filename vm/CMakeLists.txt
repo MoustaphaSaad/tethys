@@ -6,11 +6,13 @@ set(HEADER_FILES
 	include/vm/Op.h
 	include/vm/Util.h
 	include/vm/Core.h
+	include/vm/Pkg.h
 )
 
 # list the source files
 set(SOURCE_FILES
 	src/vm/Core.cpp
+	src/vm/Pkg.cpp
 )
 
 

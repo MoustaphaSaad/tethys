@@ -224,4 +224,17 @@ namespace as
 
 		return out;
 	}
+
+	vm::Pkg
+	src_gen(Src* src)
+	{
+		auto pkg = vm::pkg_new();
+		for(size_t i = 0; i < src->procs.count; ++i)
+		{
+			auto name = src->procs[i].name.str;
+			auto code = proc_gen(src->procs[i]);
+			vm::pkg_proc_add(pkg, name, code);
+		}
+		return pkg;
+	}
 }
