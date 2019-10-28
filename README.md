@@ -1035,3 +1035,273 @@ mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
 ```
 
 and that's it for today, now we have a vm along with the assembler, binary file format and the loader to run the bytecode. I think next we can extend our vm with new instructions
+
+### Day-07
+Today we'll add more arithmetic instructions, we'll add
+- sub: perform subtraction
+- mul: unsigned integer multiplication
+- imul: signed integer multiplication
+- div: unsigned integer division
+- idiv: signed integer division
+
+first let's add them to our opcodes
+```C++
+enum Op: uint8_t
+{
+	...
+	// SUB [dst + op1] [op2]
+	Op_SUB8,
+	Op_SUB16,
+	Op_SUB32,
+	Op_SUB64,
+
+	// MUL [dst + op1] [op2]
+	Op_MUL8,
+	Op_MUL16,
+	Op_MUL32,
+	Op_MUL64,
+
+	// IMUL [dst + op1] [op2]
+	Op_IMUL8,
+	Op_IMUL16,
+	Op_IMUL32,
+	Op_IMUL64,
+
+	// DIV [dst + op1] [op2]
+	Op_DIV8,
+	Op_DIV16,
+	Op_DIV32,
+	Op_DIV64,
+
+	// IDIV [dst + op1] [op2]
+	Op_IDIV8,
+	Op_IDIV16,
+	Op_IDIV32,
+	Op_IDIV64,
+	...
+};
+```
+
+then we'll need to implement these opcodes in our vm
+```C++
+void
+core_ins_execute(Core& self, const mn::Buf<uint8_t>& code)
+{
+	auto op = pop_op(self, code);
+	switch(op)
+	{
+	...
+	case Op_SUB32:
+	{
+		auto& dst = load_reg(self, code);
+		auto& src = load_reg(self, code);
+		dst.u32 -= src.u32;
+		break;
+	}
+	...
+	case Op_MUL32:
+	{
+		auto& dst = load_reg(self, code);
+		auto& src = load_reg(self, code);
+		dst.u32 *= src.u32;
+		break;
+	}
+	...
+	case Op_IMUL32:
+	{
+		auto& dst = load_reg(self, code);
+		auto& src = load_reg(self, code);
+		dst.i32 *= src.i32;
+		break;
+	}
+	...
+	case Op_DIV32:
+	{
+		auto& dst = load_reg(self, code);
+		auto& src = load_reg(self, code);
+		dst.u32 /= src.u32;
+		break;
+	}
+	...
+	case Op_IDIV32:
+	{
+		auto& dst = load_reg(self, code);
+		auto& src = load_reg(self, code);
+		dst.i32 /= src.i32;
+		break;
+	}
+	...
+	}
+}
+```
+
+Now we have the opcode and we have their implementation, now we need to make the assembler aware of them
+
+first let's add the instructions keywords to the tokens
+```C++
+// This is a list of the tokens
+#define TOKEN_LISTING \
+	...
+	TOKEN(KEYWORDS__BEGIN, ""), \
+	...
+	TOKEN(KEYWORD_I8_SUB, "i8.sub"), \
+	TOKEN(KEYWORD_I16_SUB, "i16.sub"), \
+	TOKEN(KEYWORD_I32_SUB, "i32.sub"), \
+	TOKEN(KEYWORD_I64_SUB, "i64.sub"), \
+	TOKEN(KEYWORD_U8_SUB, "u8.sub"), \
+	TOKEN(KEYWORD_U16_SUB, "u16.sub"), \
+	TOKEN(KEYWORD_U32_SUB, "u32.sub"), \
+	TOKEN(KEYWORD_U64_SUB, "u64.sub"), \
+	TOKEN(KEYWORD_I8_MUL, "i8.mul"), \
+	TOKEN(KEYWORD_I16_MUL, "i16.mul"), \
+	TOKEN(KEYWORD_I32_MUL, "i32.mul"), \
+	TOKEN(KEYWORD_I64_MUL, "i64.mul"), \
+	TOKEN(KEYWORD_U8_MUL, "u8.mul"), \
+	TOKEN(KEYWORD_U16_MUL, "u16.mul"), \
+	TOKEN(KEYWORD_U32_MUL, "u32.mul"), \
+	TOKEN(KEYWORD_U64_MUL, "u64.mul"), \
+	TOKEN(KEYWORD_I8_DIV, "i8.div"), \
+	TOKEN(KEYWORD_I16_DIV, "i16.div"), \
+	TOKEN(KEYWORD_I32_DIV, "i32.div"), \
+	TOKEN(KEYWORD_I64_DIV, "i64.div"), \
+	TOKEN(KEYWORD_U8_DIV, "u8.div"), \
+	TOKEN(KEYWORD_U16_DIV, "u16.div"), \
+	TOKEN(KEYWORD_U32_DIV, "u32.div"), \
+	TOKEN(KEYWORD_U64_DIV, "u64.div"), \
+	...
+	TOKEN(KEYWORDS__END, ""),
+```
+
+now we can scan these instructions, let's then add them to the parsing
+```C++
+// Here we extend the is_add function to be is_arithmetic and it checks sub, mul, and div
+inline static bool
+is_arithmetic(const Tkn& tkn)
+{
+	return (tkn.kind == Tkn::KIND_KEYWORD_I8_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_I16_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_I32_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_I64_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_U8_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_U16_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_U32_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_U64_ADD ||
+			tkn.kind == Tkn::KIND_KEYWORD_I8_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_I16_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_I32_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_I64_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_U8_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_U16_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_U32_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_U64_SUB ||
+			tkn.kind == Tkn::KIND_KEYWORD_I8_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_I16_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_I32_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_I64_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_U8_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_U16_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_U32_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_U64_MUL ||
+			tkn.kind == Tkn::KIND_KEYWORD_I8_DIV ||
+			tkn.kind == Tkn::KIND_KEYWORD_I16_DIV ||
+			tkn.kind == Tkn::KIND_KEYWORD_I32_DIV ||
+			tkn.kind == Tkn::KIND_KEYWORD_I64_DIV ||
+			tkn.kind == Tkn::KIND_KEYWORD_U8_DIV ||
+			tkn.kind == Tkn::KIND_KEYWORD_U16_DIV ||
+			tkn.kind == Tkn::KIND_KEYWORD_U32_DIV ||
+			tkn.kind == Tkn::KIND_KEYWORD_U64_DIV);
+}
+
+inline static Ins
+parser_ins(Parser* self)
+{
+	Ins ins{};
+
+	Tkn op = parser_look(self);
+	if (is_load(op))
+	{
+		ins.op = parser_eat(self);
+		ins.dst = parser_reg(self);
+		ins.src = parser_const(self);
+	}
+	else if (is_arithmetic(op))
+	{
+		ins.op = parser_eat(self);
+		ins.dst = parser_reg(self);
+		ins.src = parser_reg(self);
+	}
+	else if(op.kind == Tkn::KIND_KEYWORD_HALT)
+	{
+		ins.op = parser_eat(self);
+	}
+
+	return ins;
+}
+```
+
+now we can parse the instructions, let's add them to code generation
+```C++
+inline static void
+ins_gen(const Ins& ins, mn::Buf<uint8_t>& out)
+{
+	switch(ins.op.kind)
+	{
+	...
+	case Tkn::KIND_KEYWORD_I32_SUB:
+	case Tkn::KIND_KEYWORD_U32_SUB:
+		vm::push8(out, uint8_t(vm::Op_SUB32));
+		reg_gen(ins.dst, out);
+		reg_gen(ins.src, out);
+		break;
+	...
+	case Tkn::KIND_KEYWORD_I32_MUL:
+		vm::push8(out, uint8_t(vm::Op_IMUL32));
+		reg_gen(ins.dst, out);
+		reg_gen(ins.src, out);
+		break;
+
+	case Tkn::KIND_KEYWORD_U32_MUL:
+		vm::push8(out, uint8_t(vm::Op_MUL32));
+		reg_gen(ins.dst, out);
+		reg_gen(ins.src, out);
+		break;
+	...
+	case Tkn::KIND_KEYWORD_I32_DIV:
+		vm::push8(out, uint8_t(vm::Op_IDIV32));
+		reg_gen(ins.dst, out);
+		reg_gen(ins.src, out);
+		break;
+
+	case Tkn::KIND_KEYWORD_U32_DIV:
+		vm::push8(out, uint8_t(vm::Op_DIV32));
+		reg_gen(ins.dst, out);
+		reg_gen(ins.src, out);
+		break;
+	...
+	}
+}
+```
+
+Now we can also bytecode generate those instructions, and that's it we can now do complex stuff like this
+```
+proc main
+	i32.load r0 2
+	i32.load r1 4
+	i32.add r0 r1
+
+	i32.load r0 2
+	i32.load r1 4
+	i32.sub r0 r1
+
+	i32.load r0 2
+	i32.load r1 4
+	i32.mul r0 r1
+	u32.mul r0 r1
+
+	i32.load r0 2
+	i32.load r1 4
+	i32.div r0 r1
+	u32.div r0 r1
+	halt
+end
+```

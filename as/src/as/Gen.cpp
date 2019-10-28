@@ -202,6 +202,130 @@ namespace as
 			reg_gen(ins.src, out);
 			break;
 
+		case Tkn::KIND_KEYWORD_I8_SUB:
+		case Tkn::KIND_KEYWORD_U8_SUB:
+			vm::push8(out, uint8_t(vm::Op_SUB8));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I16_SUB:
+		case Tkn::KIND_KEYWORD_U16_SUB:
+			vm::push8(out, uint8_t(vm::Op_SUB16));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I32_SUB:
+		case Tkn::KIND_KEYWORD_U32_SUB:
+			vm::push8(out, uint8_t(vm::Op_SUB32));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I64_SUB:
+		case Tkn::KIND_KEYWORD_U64_SUB:
+			vm::push8(out, uint8_t(vm::Op_SUB64));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I8_MUL:
+			vm::push8(out, uint8_t(vm::Op_IMUL8));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U8_MUL:
+			vm::push8(out, uint8_t(vm::Op_MUL8));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I16_MUL:
+			vm::push8(out, uint8_t(vm::Op_IMUL16));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U16_MUL:
+			vm::push8(out, uint8_t(vm::Op_MUL16));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I32_MUL:
+			vm::push8(out, uint8_t(vm::Op_IMUL32));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U32_MUL:
+			vm::push8(out, uint8_t(vm::Op_MUL32));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I64_MUL:
+			vm::push8(out, uint8_t(vm::Op_IMUL64));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U64_MUL:
+			vm::push8(out, uint8_t(vm::Op_MUL64));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I8_DIV:
+			vm::push8(out, uint8_t(vm::Op_IDIV8));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U8_DIV:
+			vm::push8(out, uint8_t(vm::Op_DIV8));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I16_DIV:
+			vm::push8(out, uint8_t(vm::Op_IDIV16));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U16_DIV:
+			vm::push8(out, uint8_t(vm::Op_DIV16));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I32_DIV:
+			vm::push8(out, uint8_t(vm::Op_IDIV32));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U32_DIV:
+			vm::push8(out, uint8_t(vm::Op_DIV32));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_I64_DIV:
+			vm::push8(out, uint8_t(vm::Op_IDIV64));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
+		case Tkn::KIND_KEYWORD_U64_DIV:
+			vm::push8(out, uint8_t(vm::Op_DIV64));
+			reg_gen(ins.dst, out);
+			reg_gen(ins.src, out);
+			break;
+
 		case Tkn::KIND_KEYWORD_HALT:
 			vm::push8(out, uint8_t(vm::Op_HALT));
 			break;

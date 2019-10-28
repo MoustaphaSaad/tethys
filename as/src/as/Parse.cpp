@@ -98,19 +98,25 @@ namespace as
 		return Tkn{};
 	}
 
+	inline static bool
+	is_reg(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_R0 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R1 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R2 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R3 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R4 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R5 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R6 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R7 ||
+				tkn.kind == Tkn::KIND_KEYWORD_IP);
+	}
+
 	inline static Tkn
 	parser_reg(Parser* self)
 	{
 		auto op = parser_look(self);
-		if (op.kind == Tkn::KIND_KEYWORD_R0 ||
-			op.kind == Tkn::KIND_KEYWORD_R1 ||
-			op.kind == Tkn::KIND_KEYWORD_R2 ||
-			op.kind == Tkn::KIND_KEYWORD_R3 ||
-			op.kind == Tkn::KIND_KEYWORD_R4 ||
-			op.kind == Tkn::KIND_KEYWORD_R5 ||
-			op.kind == Tkn::KIND_KEYWORD_R6 ||
-			op.kind == Tkn::KIND_KEYWORD_R7 ||
-			op.kind == Tkn::KIND_KEYWORD_IP)
+		if (is_reg(op))
 		{
 			return parser_eat(self);
 		}
@@ -133,33 +139,69 @@ namespace as
 		return Tkn{};
 	}
 
+	inline static bool
+	is_load(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_I8_LOAD ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_LOAD ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_LOAD ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_LOAD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_LOAD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_LOAD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_LOAD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_LOAD);
+	}
+
+	inline static bool
+	is_arithmetic(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_I8_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_ADD ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_SUB ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_MUL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_DIV ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_DIV ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_DIV ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_DIV ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_DIV ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_DIV ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_DIV ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_DIV);
+	}
+
 	inline static Ins
 	parser_ins(Parser* self)
 	{
 		Ins ins{};
 
 		Tkn op = parser_look(self);
-		if (op.kind == Tkn::KIND_KEYWORD_I8_LOAD ||
-			op.kind == Tkn::KIND_KEYWORD_I16_LOAD ||
-			op.kind == Tkn::KIND_KEYWORD_I32_LOAD ||
-			op.kind == Tkn::KIND_KEYWORD_I64_LOAD ||
-			op.kind == Tkn::KIND_KEYWORD_U8_LOAD ||
-			op.kind == Tkn::KIND_KEYWORD_U16_LOAD ||
-			op.kind == Tkn::KIND_KEYWORD_U32_LOAD ||
-			op.kind == Tkn::KIND_KEYWORD_U64_LOAD)
+		if (is_load(op))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			ins.src = parser_const(self);
 		}
-		else if (op.kind == Tkn::KIND_KEYWORD_I8_ADD ||
-				 op.kind == Tkn::KIND_KEYWORD_I16_ADD ||
-				 op.kind == Tkn::KIND_KEYWORD_I32_ADD ||
-				 op.kind == Tkn::KIND_KEYWORD_I64_ADD ||
-				 op.kind == Tkn::KIND_KEYWORD_U8_ADD ||
-				 op.kind == Tkn::KIND_KEYWORD_U16_ADD ||
-				 op.kind == Tkn::KIND_KEYWORD_U32_ADD ||
-				 op.kind == Tkn::KIND_KEYWORD_U64_ADD)
+		else if (is_arithmetic(op))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
