@@ -62,10 +62,10 @@ args_parse(Args& self, int argc, char** argv)
 			}
 
 			mn::str_free(self.out_name);
-			self.out_name = mn::str_from_c(argv[i]);
+			self.out_name = mn::str_from_c(argv[i + 1]);
 			++i;
 		}
-		if (mn::str_prefix(argv[i], "--"))
+		else if (mn::str_prefix(argv[i], "--"))
 		{
 			buf_push(self.flags, mn::str_from_c(argv[i] + 2));
 		}

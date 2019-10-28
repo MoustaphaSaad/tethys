@@ -31,7 +31,7 @@ namespace vm
 	inline static bool
 	pkg_proc_add(Pkg& self, const char* name, const mn::Buf<uint8_t>& bytes)
 	{
-		return pkg_proc_add(self, mn::str_lit(name), bytes);
+		return pkg_proc_add(self, mn::str_from_c(name), bytes);
 	}
 
 	VM_EXPORT void

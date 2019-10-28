@@ -1,0 +1,20 @@
+proc main
+	i32.load r0 2
+	i32.load r1 4
+	i32.add r0 r1
+
+	i32.load r0 2
+	i32.load r1 4
+	i32.sub r0 r1
+
+	i32.load r0 2
+	i32.load r1 4
+	i32.mul r0 r1
+	u32.mul r0 r1
+
+	i32.load r0 2
+	i32.load r1 4
+	i32.div r0 r1
+	u32.div r0 r1
+	halt
+end
