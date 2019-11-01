@@ -1334,6 +1334,8 @@ exit:
 end
 ```
 
+#### Virtual Machine
+
 first let's add the instructions to the vm
 ```C++
 enum Op: uint8_t
@@ -1476,6 +1478,7 @@ case Op_JGE:
 ...
 ```
 
+#### Scanner
 Now that we have the instructions in place, let's add the instructions to assemblers
 
 first let's add the tokens
@@ -1538,6 +1541,7 @@ TOKEN(KEYWORD_U64_JGE, "u64.jge"), \
 TOKEN(KEYWORDS__END, ""),
 ```
 
+#### Parser
 then let's add these instructions to the parser, also we'll need to add label support
 
 first we'll need to add the success label field to the instruction struct itself
@@ -1579,6 +1583,7 @@ parser_ins(Parser* self)
 }
 ```
 
+#### Codegen
 now let's add them to the code generation, now we'll need to think about what we'll do in a case where someone adds a jump to a forward label like the `negative` label in the our code above.
 
 here's the plan. when we generate the code and find a jump instruction we add the label name and the position in our bytecode buffer in a fixup array and simply we emit 0 in place of the offset. if we find a label we add it to some symbol table and register its bytecode location.
