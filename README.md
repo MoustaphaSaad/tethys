@@ -1305,3 +1305,352 @@ proc main
 	halt
 end
 ```
+
+### Day-8
+Today we'll add conditional jumps. this will make this code possible, we try to check if a number (in r2 register) is positive or negative or a zero
+
+note the conditional jumps usage `[i32.jl] [op1] [op2] [success branch]`
+```asm
+proc main
+	i32.load r2 -2
+	i32.load r1 0
+	i32.jl r2 r1 negative
+	jmp maybe_positive
+
+negative:
+	i32.load r0 -1
+	jmp exit
+
+maybe_positive:
+	i32.jg r2 r1 positive
+	i32.load r0 0
+	jmp exit
+
+positive:
+	i32.load r0 1
+
+exit:
+	halt
+end
+```
+
+first let's add the instructions to the vm
+```C++
+enum Op: uint8_t
+{
+	...
+	// unsigned compare
+	// CMP [op1] [op2]
+	Op_CMP8,
+	Op_CMP16,
+	Op_CMP32,
+	Op_CMP64,
+
+	// signed compare
+	// ICMP [op1] [op2]
+	Op_ICMP8,
+	Op_ICMP16,
+	Op_ICMP32,
+	Op_ICMP64,
+
+	// jump unconditionall
+	// JMP [offset signed 64-bit]
+	Op_JMP,
+
+	// jump if equal
+	// JE [offset signed 64-bit]
+	Op_JE,
+
+	// jump if not equal
+	// JNE [offset signed 64-bit]
+	Op_JNE,
+
+	// jump if less than
+	// JL [offset signed 64-bit]
+	Op_JL,
+
+	// jump if less than or equal
+	// JLE [offset signed 64-bit]
+	Op_JLE,
+
+	// jump if greater than
+	// JG [offset signed 64-bit]
+	Op_JG,
+
+	// jump if greater than or equal
+	// JGE [offset signed 64-bit]
+	Op_JGE,
+	...
+};
+```
+
+then let's try to implement these instructions in our core
+```C++
+...
+case Op_CMP32:
+{
+	auto& op1 = load_reg(self, code);
+	auto& op2 = load_reg(self, code);
+	if (op1.u32 > op2.u32)
+		self.cmp = Core::CMP_GREATER;
+	else if (op1.u32 < op2.u32)
+		self.cmp = Core::CMP_LESS;
+	else
+		self.cmp = Core::CMP_EQUAL;
+	break;
+}
+...
+case Op_ICMP32:
+{
+	auto& op1 = load_reg(self, code);
+	auto& op2 = load_reg(self, code);
+	if (op1.i32 > op2.i32)
+		self.cmp = Core::CMP_GREATER;
+	else if (op1.i32 < op2.i32)
+		self.cmp = Core::CMP_LESS;
+	else
+		self.cmp = Core::CMP_EQUAL;
+	break;
+}
+...
+case Op_JMP:
+{
+	int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+	self.r[Reg_IP].u64 += offset;
+	break;
+}
+case Op_JE:
+{
+	int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+	if (self.cmp == Core::CMP_EQUAL)
+	{
+		self.r[Reg_IP].u64 += offset;
+	}
+	break;
+}
+case Op_JNE:
+{
+	int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+	if (self.cmp != Core::CMP_EQUAL)
+	{
+		self.r[Reg_IP].u64 += offset;
+	}
+	break;
+}
+case Op_JL:
+{
+	int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+	if (self.cmp == Core::CMP_LESS)
+	{
+		self.r[Reg_IP].u64 += offset;
+	}
+	break;
+}
+case Op_JLE:
+{
+	int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+	if (self.cmp == Core::CMP_LESS || self.cmp == Core::CMP_EQUAL)
+	{
+		self.r[Reg_IP].u64 += offset;
+	}
+	break;
+}
+case Op_JG:
+{
+	int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+	if (self.cmp == Core::CMP_GREATER)
+	{
+		self.r[Reg_IP].u64 += offset;
+	}
+	break;
+}
+case Op_JGE:
+{
+	int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+	if (self.cmp == Core::CMP_GREATER || self.cmp == Core::CMP_EQUAL)
+	{
+		self.r[Reg_IP].u64 += offset;
+	}
+	break;
+}
+...
+```
+
+Now that we have the instructions in place, let's add the instructions to assemblers
+
+first let's add the tokens
+```C++
+...
+TOKEN(COLON, ":"), \
+...
+TOKEN(KEYWORDS__BEGIN, ""), \
+...
+TOKEN(KEYWORD_JMP, "jmp"), \
+TOKEN(KEYWORD_I8_JE, "i8.je"), \
+TOKEN(KEYWORD_I16_JE, "i16.je"), \
+TOKEN(KEYWORD_I32_JE, "i32.je"), \
+TOKEN(KEYWORD_I64_JE, "i64.je"), \
+TOKEN(KEYWORD_U8_JE, "u8.je"), \
+TOKEN(KEYWORD_U16_JE, "u16.je"), \
+TOKEN(KEYWORD_U32_JE, "u32.je"), \
+TOKEN(KEYWORD_U64_JE, "u64.je"), \
+TOKEN(KEYWORD_I8_JNE, "i8.jne"), \
+TOKEN(KEYWORD_I16_JNE, "i16.jne"), \
+TOKEN(KEYWORD_I32_JNE, "i32.jne"), \
+TOKEN(KEYWORD_I64_JNE, "i64.jne"), \
+TOKEN(KEYWORD_U8_JNE, "u8.jne"), \
+TOKEN(KEYWORD_U16_JNE, "u16.jne"), \
+TOKEN(KEYWORD_U32_JNE, "u32.jne"), \
+TOKEN(KEYWORD_U64_JNE, "u64.jne"), \
+TOKEN(KEYWORD_I8_JL, "i8.jl"), \
+TOKEN(KEYWORD_I16_JL, "i16.jl"), \
+TOKEN(KEYWORD_I32_JL, "i32.jl"), \
+TOKEN(KEYWORD_I64_JL, "i64.jl"), \
+TOKEN(KEYWORD_U8_JL, "u8.jl"), \
+TOKEN(KEYWORD_U16_JL, "u16.jl"), \
+TOKEN(KEYWORD_U32_JL, "u32.jl"), \
+TOKEN(KEYWORD_U64_JL, "u64.jl"), \
+TOKEN(KEYWORD_I8_JLE, "i8.jle"), \
+TOKEN(KEYWORD_I16_JLE, "i16.jle"), \
+TOKEN(KEYWORD_I32_JLE, "i32.jle"), \
+TOKEN(KEYWORD_I64_JLE, "i64.jle"), \
+TOKEN(KEYWORD_U8_JLE, "u8.jle"), \
+TOKEN(KEYWORD_U16_JLE, "u16.jle"), \
+TOKEN(KEYWORD_U32_JLE, "u32.jle"), \
+TOKEN(KEYWORD_U64_JLE, "u64.jle"), \
+TOKEN(KEYWORD_I8_JG, "i8.jg"), \
+TOKEN(KEYWORD_I16_JG, "i16.jg"), \
+TOKEN(KEYWORD_I32_JG, "i32.jg"), \
+TOKEN(KEYWORD_I64_JG, "i64.jg"), \
+TOKEN(KEYWORD_U8_JG, "u8.jg"), \
+TOKEN(KEYWORD_U16_JG, "u16.jg"), \
+TOKEN(KEYWORD_U32_JG, "u32.jg"), \
+TOKEN(KEYWORD_U64_JG, "u64.jg"), \
+TOKEN(KEYWORD_I8_JGE, "i8.jge"), \
+TOKEN(KEYWORD_I16_JGE, "i16.jge"), \
+TOKEN(KEYWORD_I32_JGE, "i32.jge"), \
+TOKEN(KEYWORD_I64_JGE, "i64.jge"), \
+TOKEN(KEYWORD_U8_JGE, "u8.jge"), \
+TOKEN(KEYWORD_U16_JGE, "u16.jge"), \
+TOKEN(KEYWORD_U32_JGE, "u32.jge"), \
+TOKEN(KEYWORD_U64_JGE, "u64.jge"), \
+...
+TOKEN(KEYWORDS__END, ""),
+```
+
+then let's add these instructions to the parser, also we'll need to add label support
+
+first we'll need to add the success label field to the instruction struct itself
+```C++
+struct Ins
+{
+	Tkn op;  // operation
+	Tkn dst; // destination
+	Tkn src; // source
+	Tkn lbl; // label
+};
+```
+
+then let's add the instructions to the parser
+```C++
+inline static Ins
+parser_ins(Parser* self)
+{
+	...
+	else if (is_cond_jump(op))
+	{
+		ins.op = parser_eat(self);
+		ins.dst = parser_reg(self);
+		ins.src = parser_reg(self);
+		ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+	}
+	else if (op.kind == Tkn::KIND_KEYWORD_JMP)
+	{
+		ins.op = parser_eat(self);
+		ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+	}
+	// label
+	else if (op.kind == Tkn::KIND_ID)
+	{
+		ins.op = parser_eat(self);
+		parser_eat_must(self, Tkn::KIND_COLON);
+	}
+	...
+}
+```
+
+now let's add them to the code generation, now we'll need to think about what we'll do in a case where someone adds a jump to a forward label like the `negative` label in the our code above.
+
+here's the plan. when we generate the code and find a jump instruction we add the label name and the position in our bytecode buffer in a fixup array and simply we emit 0 in place of the offset. if we find a label we add it to some symbol table and register its bytecode location.
+
+After finishing code generation we go and fix all the jumps. let's start executing.
+
+first let's start by creating the emitter struct
+```C++
+struct Emitter
+{
+	Src* src;
+	mn::Buf<uint8_t> out;
+	mn::Buf<Fixup_Request> fixups;
+	mn::Map<const char*, size_t> symbols;
+};
+```
+
+now let's add the jump code generation
+```C++
+case Tkn::KIND_KEYWORD_I32_JL:
+	// emit compare instruction
+	vm::push8(self.out, uint8_t(vm::Op_ICMP32));
+	emitter_reg_gen(self, ins.dst);
+	emitter_reg_gen(self, ins.src);
+	// emit the jump
+	vm::push8(self.out, uint8_t(vm::Op_JL));
+	// put the fixup request in the array
+	emitter_label_fixup_request(self, ins.lbl);
+	break;
+```
+
+let's have a look at the `emitter_label_fixup_request` function
+```C++
+inline static void
+emitter_label_fixup_request(Emitter& self, const Tkn& label)
+{
+	// add the fixup request with the fixup location in the output byte array
+	mn::buf_push(self.fixups, Fixup_Request{ label, self.out.count });
+	// then add 0 as a placeholder
+	vm::push64(self.out, 0);
+}
+```
+
+now let's do the fixup code
+```C++
+...
+// do the fixups
+for(auto fixup: self.fixups)
+{
+	// try to find label in the symbol table
+	auto it = mn::map_lookup(self.symbols, fixup.name.str);
+
+	// emit an error if we didn't find the label
+	if(it == nullptr)
+	{
+		src_err(self.src, fixup.name, mn::strf("'{}' undefined symbol", fixup.name.str));
+		continue;
+	}
+
+	// JL | [offset64] ^
+	// code...
+	// target_label:
+	// code...
+	// 
+	// calculate the jump offset
+	// keep in mind that we put the address of the start of the offset in the code which is 
+	// middle of the instruction the '|' position in the example above but we need it to be at the '^' position
+	// so we add sizeof(int64_t) to it to align it with the instruction itself then we calc the offset
+	int64_t offset = it->value - (fixup.bytecode_index + sizeof(int64_t));
+	write64(self.out.ptr + fixup.bytecode_index, uint64_t(offset));
+}
+...
+```
+
+and now if we run the new code we get `-1` if `r2 < 0`, `1` if `r2 > 0`, and `0` if `r2 == 0`
