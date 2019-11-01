@@ -16,7 +16,17 @@ namespace vm
 			STATE_ERR
 		};
 
+		enum CMP
+		{
+			CMP_NONE,
+			CMP_LESS,
+			CMP_EQUAL,
+			CMP_GREATER
+		};
+
 		STATE state;
+		// any compare result will be put here
+		CMP cmp;
 		Reg_Val r[Reg_COUNT];
 	};
 

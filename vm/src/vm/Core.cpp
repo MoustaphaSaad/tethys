@@ -223,6 +223,162 @@ namespace vm
 			dst.i64 /= src.i64;
 			break;
 		}
+		case Op_CMP8:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.u8 > op2.u8)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u8 < op2.u8)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_CMP16:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.u16 > op2.u16)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u16 < op2.u16)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_CMP32:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.u32 > op2.u32)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u32 < op2.u32)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_CMP64:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.u64 > op2.u64)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u64 < op2.u64)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_ICMP8:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.i8 > op2.i8)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i8 < op2.i8)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_ICMP16:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.i16 > op2.i16)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i16 < op2.i16)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_ICMP32:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.i32 > op2.i32)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i32 < op2.i32)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_ICMP64:
+		{
+			auto& op1 = load_reg(self, code);
+			auto& op2 = load_reg(self, code);
+			if (op1.i64 > op2.i64)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i64 < op2.i64)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_JMP:
+		{
+			int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+			self.r[Reg_IP].u64 += offset;
+			break;
+		}
+		case Op_JE:
+		{
+			int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+			if (self.cmp == Core::CMP_EQUAL)
+			{
+				self.r[Reg_IP].u64 += offset;
+			}
+			break;
+		}
+		case Op_JNE:
+		{
+			int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+			if (self.cmp != Core::CMP_EQUAL)
+			{
+				self.r[Reg_IP].u64 += offset;
+			}
+			break;
+		}
+		case Op_JL:
+		{
+			int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+			if (self.cmp == Core::CMP_LESS)
+			{
+				self.r[Reg_IP].u64 += offset;
+			}
+			break;
+		}
+		case Op_JLE:
+		{
+			int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+			if (self.cmp == Core::CMP_LESS || self.cmp == Core::CMP_EQUAL)
+			{
+				self.r[Reg_IP].u64 += offset;
+			}
+			break;
+		}
+		case Op_JG:
+		{
+			int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+			if (self.cmp == Core::CMP_GREATER)
+			{
+				self.r[Reg_IP].u64 += offset;
+			}
+			break;
+		}
+		case Op_JGE:
+		{
+			int64_t offset = int64_t(pop64(code, self.r[Reg_IP].u64));
+			if (self.cmp == Core::CMP_GREATER || self.cmp == Core::CMP_EQUAL)
+			{
+				self.r[Reg_IP].u64 += offset;
+			}
+			break;
+		}
 		case Op_HALT:
 			self.state = Core::STATE_HALT;
 			break;

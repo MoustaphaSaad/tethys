@@ -8,9 +8,10 @@ namespace as
 {
 	struct Ins
 	{
-		Tkn op;
-		Tkn dst;
-		Tkn src;
+		Tkn op;  // operation
+		Tkn dst; // destination
+		Tkn src; // source
+		Tkn lbl; // label
 	};
 
 	struct Proc
