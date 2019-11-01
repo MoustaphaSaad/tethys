@@ -276,7 +276,24 @@ namespace as
 		}
 		else
 		{
-			src_err(self->src, self->pos, mn::strf("illegal character {}", self->c));
+			auto c = self->c;
+			Pos begin_pos = self->pos;
+			scanner_eat(self);
+			bool no_intern = false;
+			
+			switch(c)
+			{
+			case ':':
+				tkn.kind = Tkn::KIND_COLON;
+				tkn.str = ":";
+				break;
+			default:
+				src_err(self->src, begin_pos, mn::strf("illegal character {}", self->c));
+				break;
+			}
+
+			if (no_intern == false)
+				tkn.str = mn::str_intern(self->src->str_table, tkn.rng.begin, self->it);
 		}
 		tkn.rng.end = self->it;
 		return tkn;

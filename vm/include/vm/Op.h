@@ -51,6 +51,48 @@ namespace vm
 		Op_IDIV32,
 		Op_IDIV64,
 
+		// unsigned compare
+		// CMP [op1] [op2]
+		Op_CMP8,
+		Op_CMP16,
+		Op_CMP32,
+		Op_CMP64,
+
+		// signed compare
+		// ICMP [op1] [op2]
+		Op_ICMP8,
+		Op_ICMP16,
+		Op_ICMP32,
+		Op_ICMP64,
+
+		// jump unconditionall
+		// JMP [offset 64-bit]
+		Op_JMP,
+
+		// jump if equal
+		// JE [offset 64-bit]
+		Op_JE,
+
+		// jump if not equal
+		// JNE [offset 64-bit]
+		Op_JNE,
+
+		// jump if less than
+		// JL [offset 64-bit]
+		Op_JL,
+
+		// jump if less than or equal
+		// JLE [offset 64-bit]
+		Op_JLE,
+
+		// jump if greater than
+		// JG [offset 64-bit]
+		Op_JG,
+
+		// jump if greater than or equal
+		// JGE [offset 64-bit]
+		Op_JGE,
+
 		Op_HALT,
 	};
 }

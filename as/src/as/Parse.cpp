@@ -189,6 +189,59 @@ namespace as
 				tkn.kind == Tkn::KIND_KEYWORD_U64_DIV);
 	}
 
+	inline static bool
+	is_cond_jump(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_I8_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_JGE);
+	}
+
 	inline static Ins
 	parser_ins(Parser* self)
 	{
@@ -206,6 +259,24 @@ namespace as
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			ins.src = parser_reg(self);
+		}
+		else if (is_cond_jump(op))
+		{
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			ins.src = parser_reg(self);
+			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+		}
+		else if (op.kind == Tkn::KIND_KEYWORD_JMP)
+		{
+			ins.op = parser_eat(self);
+			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+		}
+		// label
+		else if (op.kind == Tkn::KIND_ID)
+		{
+			ins.op = parser_eat(self);
+			parser_eat_must(self, Tkn::KIND_COLON);
 		}
 		else if(op.kind == Tkn::KIND_KEYWORD_HALT)
 		{
@@ -264,13 +335,31 @@ namespace as
 			mn::print_to(out, "PROC {}\n", proc.name.str);
 			for(const auto& ins: proc.ins)
 			{
-				mn::print_to(
-					out,
-					"{} {} {}\n",
-					ins.op ? ins.op.str : "INVALID_OP",
-					ins.dst ? ins.dst.str : "",
-					ins.src ? ins.src.str : ""
-				);
+				if (is_load(ins.op) ||
+					is_arithmetic(ins.op))
+				{
+					mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
+				}
+				else if(is_cond_jump(ins.op))
+				{
+					mn::print_to(out, "  {} {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str, ins.lbl.str);
+				}
+				else if(ins.op.kind == Tkn::KIND_KEYWORD_JMP)
+				{
+					mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
+				}
+				else if(ins.op.kind == Tkn::KIND_ID)
+				{
+					mn::print_to(out, "{}:\n", ins.op.str);
+				}
+				else if(ins.op.kind == Tkn::KIND_KEYWORD_HALT)
+				{
+					mn::print_to(out, "  {}\n", ins.op.str);
+				}
+				else
+				{
+					mn::print_to(out, "  INVALID OP\n");
+				}
 			}
 			mn::print_to(out, "END\n");
 		}

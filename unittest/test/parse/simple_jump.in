@@ -1,0 +1,21 @@
+proc main
+	i32.load r2 0
+	i32.load r1 0
+	i32.jl r2 r1 negative
+	jmp maybe_positive
+
+negative:
+	i32.load r0 -1
+	jmp exit
+
+maybe_positive:
+	i32.jg r2 r1 positive
+	i32.load r0 0
+	jmp exit
+
+positive:
+	i32.load r0 1
+
+exit:
+	halt
+end
