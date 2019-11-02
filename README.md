@@ -1,9 +1,25 @@
 # tethys
-i just do things
-i want to build the mountain, and it's name is tethys
+I just do things.
+I want to build the mountain, and its name is [tethys](https://en.wikipedia.org/wiki/Tethys_Ocean)
 
 ## Virtual Machine
-We'll build a register based virtual machine
+We'll build a register based virtual machine.
+
+When you think of a virtual machine, think of the JVM or V8. Do **not** think of VirtualBox or VMWare.
+
+VirtualBox and VMWare virtualize all of the hardware of a computer to run a complete operating system.
+
+Our Virtual Machine creates a virtual processor that runs a single program.
+
+Because we're creating our own processor, we get to decide what the assembly/bytecode this processor can understand and execute. We're free to do whatever we want.
+
+We're going to start completely from scratch and slowly build our mountain step by step.
+
+We'll write our code in a [C-Style C++](https://moustaphasaad.github.io/Pure_Coding_Style.html).
+
+We won't be using the C++ standard library because it's sort of garbage. Instead we'll be using [mn](https://github.com/MoustaphaSaad/mn).
+
+If you have any questions, comments, suggestions or insults and curse words, please send me an Email: moustapha.saad.abdelhamed@gmail.com or open an issue.
 
 ### Day-0
 I did the initial setup of the repo with a simple hello world program
