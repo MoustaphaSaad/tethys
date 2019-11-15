@@ -1675,3 +1675,232 @@ for(auto fixup: self.fixups)
 ```
 
 and now if we run the new code we get `-1` if `r2 < 0`, `1` if `r2 > 0`, and `0` if `r2 == 0`
+
+### Day-9
+Let's add stack memory to our CPU
+
+```asm
+proc main
+	; load some constants to the registers
+	i32.load r0 1
+	i32.load r1 2
+	i32.load r2 4
+
+	; write r0 to the stack
+	i32.write sp r0
+	; move the stack 4 bytes upward
+	i32.sub sp r2
+
+	; write r1 to the stack
+	i32.write sp r1
+	; move the stack 4 bytes upward
+	i32.sub sp r2
+
+	; change the values inside r0 and r1
+	i32.load r0 3
+	i32.load r1 4
+
+	; move the stack 4 bytes downward
+	i32.add sp r2
+	; read the value of r1 back
+	i32.read r1 sp
+
+	; move the stack 4 bytes downward
+	i32.add sp r2
+	; read the value of r0 back
+	i32.read r0 sp
+
+	; stop the execution
+	halt
+end
+```
+
+first we'll need to add the stack pointer register
+```C++
+enum Reg: uint8_t
+{
+	...
+	// instruction pointer
+	Reg_IP,
+
+	// stack pointer
+	Reg_SP,
+
+	//Count of the registers
+	Reg_COUNT
+};
+
+union Reg_Val
+{
+	...
+	uint64_t u64;
+	void*	 ptr;
+};
+```
+
+now that we have added the register to hold the stack memory address let's add the actual stack memory in the cpu core
+```C++
+struct Core
+{
+	...
+	Reg_Val r[Reg_COUNT];
+
+	mn::Buf<uint8_t> stack_memory;
+};
+```
+
+then let's initialize it
+```C++
+Core
+core_new()
+{
+	Core self{};
+	// we start with 8 Megabytes of stack memory
+	self.stack_memory = mn::buf_with_count<uint8_t>(8ULL * 1024ULL * 1024ULL);
+	// we set the stack register to point to the end of the stack since our stack will be growing upward (you grow the stack by subtracting from SP)
+	self.r[Reg_SP].ptr = end(self.stack_memory);
+	return self;
+}
+```
+
+now that we have everything set let's add the opcodes
+```C++
+enum Op: uint8_t
+{
+	...
+	// reads data from the src address register into the specified dst register
+	// READ [dst] [src]
+	Op_READ8,
+	Op_READ16,
+	Op_READ32,
+	Op_READ64,
+
+	// writes data from the src register into the specified dst address register
+	// WRITE [dst] [src]
+	Op_WRITE8,
+	Op_WRITE16,
+	Op_WRITE32,
+	Op_WRITE64,
+	...
+}
+```
+
+then let's implement them
+```C++
+void
+core_ins_execute(Core& self, const mn::Buf<uint8_t>& code)
+{
+	...
+	case Op_READ32:
+	{
+		// get the dst register
+		auto& dst = load_reg(self, code);
+		// get the src address register
+		auto& src = load_reg(self, code);
+		// move the pointer of the src register to the front of the 4 bytes
+		auto ptr = ((uint32_t*)src.ptr - 1);
+		// check if the pointer is a valid pointer to the stack and that we have 4 bytes available
+		if(_valid_next_bytes(self, ptr, 4) == false)
+		{
+			self.state = Core::STATE_ERR;
+			break;
+		}
+		// read the pointer into the dst register
+		dst.u32 = *ptr;
+		break;
+	}
+	...
+	case Op_WRITE32:
+	{
+		// get the dst address register
+		auto& dst = load_reg(self, code);
+		// get the src register
+		auto& src = load_reg(self, code);
+		// move the pointer of the dst register to the front of the 4 bytes
+		auto ptr = ((uint32_t*)dst.ptr - 1);
+		// check if the pointer is a valid pointer to the stack and that we have 4 bytes available
+		if(_valid_next_bytes(self, ptr, 4) == false)
+		{
+			self.state = Core::STATE_ERR;
+			break;
+		}
+		// write the src register into the dst address register
+		*ptr = src.u32;
+		break;
+	}
+	...
+}
+```
+
+now that we've got the implementation in place let's add it to the assembler
+
+first let's add it to the token listing
+```C++
+// This is a list of the tokens
+#define TOKEN_LISTING \
+	...
+	TOKEN(KEYWORDS__BEGIN, ""), \
+	...
+	TOKEN(KEYWORD_I8_READ, "i8.read"), \
+	TOKEN(KEYWORD_I16_READ, "i16.read"), \
+	TOKEN(KEYWORD_I32_READ, "i32.read"), \
+	TOKEN(KEYWORD_I64_READ, "i64.read"), \
+	TOKEN(KEYWORD_U8_READ, "u8.read"), \
+	TOKEN(KEYWORD_U16_READ, "u16.read"), \
+	TOKEN(KEYWORD_U32_READ, "u32.read"), \
+	TOKEN(KEYWORD_U64_READ, "u64.read"), \
+	TOKEN(KEYWORD_I8_WRITE, "i8.write"), \
+	TOKEN(KEYWORD_I16_WRITE, "i16.write"), \
+	TOKEN(KEYWORD_I32_WRITE, "i32.write"), \
+	TOKEN(KEYWORD_I64_WRITE, "i64.write"), \
+	TOKEN(KEYWORD_U8_WRITE, "u8.write"), \
+	TOKEN(KEYWORD_U16_WRITE, "u16.write"), \
+	TOKEN(KEYWORD_U32_WRITE, "u32.write"), \
+	TOKEN(KEYWORD_U64_WRITE, "u64.write"), \
+	...
+	TOKEN(KEYWORDS__END, ""),
+```
+
+then we'll do the parsing
+```C++
+inline static Ins
+parser_ins(Parser* self)
+{
+	...
+	else if(is_mem_transfer(op))
+	{
+		ins.op = parser_eat(self);
+		ins.dst = parser_reg(self);
+		ins.src = parser_reg(self);
+	}
+	...
+}
+```
+
+the last missing piece is to add instructions to code generation
+```C++
+inline static void
+emitter_ins_gen(Emitter& self, const Ins& ins)
+{
+	switch(ins.op.kind)
+	{
+	...
+	case Tkn::KIND_KEYWORD_I32_READ:
+	case Tkn::KIND_KEYWORD_U32_READ:
+		vm::push8(self.out, uint8_t(vm::Op_READ32));
+		emitter_reg_gen(self, ins.dst);
+		emitter_reg_gen(self, ins.src);
+		break;
+	...
+	case Tkn::KIND_KEYWORD_I32_WRITE:
+	case Tkn::KIND_KEYWORD_U32_WRITE:
+		vm::push8(self.out, uint8_t(vm::Op_WRITE32));
+		emitter_reg_gen(self, ins.dst);
+		emitter_reg_gen(self, ins.src);
+		break;
+	...
+	}
+}
+```
+
+and that's it now we can read and write to the stack memory as you've seen above

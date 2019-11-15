@@ -19,6 +19,9 @@ namespace vm
 		// instruction pointer
 		Reg_IP,
 
+		// stack pointer
+		Reg_SP,
+
 		//Count of the registers
 		Reg_COUNT
 	};
@@ -33,5 +36,6 @@ namespace vm
 		uint16_t u16;
 		uint32_t u32;
 		uint64_t u64;
+		void*	 ptr;
 	};
 }

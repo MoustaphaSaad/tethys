@@ -93,6 +93,20 @@ namespace vm
 		// JGE [offset 64-bit]
 		Op_JGE,
 
+		// reads data from the src address register into the specified dst register
+		// READ [dst] [src]
+		Op_READ8,
+		Op_READ16,
+		Op_READ32,
+		Op_READ64,
+
+		// writes data from the src register into the specified dst address register
+		// WRITE [dst] [src]
+		Op_WRITE8,
+		Op_WRITE16,
+		Op_WRITE32,
+		Op_WRITE64,
+
 		Op_HALT,
 	};
 }
