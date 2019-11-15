@@ -116,6 +116,9 @@ namespace as
 		case Tkn::KIND_KEYWORD_IP:
 			vm::push8(self.out, uint8_t(vm::Reg_IP));
 			break;
+		case Tkn::KIND_KEYWORD_SP:
+			vm::push8(self.out, uint8_t(vm::Reg_SP));
+			break;
 		default:
 			assert(false && "unreachable");
 			break;
@@ -787,6 +790,62 @@ namespace as
 		case Tkn::KIND_KEYWORD_JMP:
 			vm::push8(self.out, uint8_t(vm::Op_JMP));
 			emitter_label_fixup_request(self, ins.lbl);
+			break;
+
+		case Tkn::KIND_KEYWORD_I8_READ:
+		case Tkn::KIND_KEYWORD_U8_READ:
+			vm::push8(self.out, uint8_t(vm::Op_READ8));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
+			break;
+
+		case Tkn::KIND_KEYWORD_I16_READ:
+		case Tkn::KIND_KEYWORD_U16_READ:
+			vm::push8(self.out, uint8_t(vm::Op_READ16));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
+			break;
+
+		case Tkn::KIND_KEYWORD_I32_READ:
+		case Tkn::KIND_KEYWORD_U32_READ:
+			vm::push8(self.out, uint8_t(vm::Op_READ32));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
+			break;
+
+		case Tkn::KIND_KEYWORD_I64_READ:
+		case Tkn::KIND_KEYWORD_U64_READ:
+			vm::push8(self.out, uint8_t(vm::Op_READ64));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
+			break;
+
+		case Tkn::KIND_KEYWORD_I8_WRITE:
+		case Tkn::KIND_KEYWORD_U8_WRITE:
+			vm::push8(self.out, uint8_t(vm::Op_WRITE8));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
+			break;
+
+		case Tkn::KIND_KEYWORD_I16_WRITE:
+		case Tkn::KIND_KEYWORD_U16_WRITE:
+			vm::push8(self.out, uint8_t(vm::Op_WRITE16));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
+			break;
+
+		case Tkn::KIND_KEYWORD_I32_WRITE:
+		case Tkn::KIND_KEYWORD_U32_WRITE:
+			vm::push8(self.out, uint8_t(vm::Op_WRITE32));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
+			break;
+
+		case Tkn::KIND_KEYWORD_I64_WRITE:
+		case Tkn::KIND_KEYWORD_U64_WRITE:
+			vm::push8(self.out, uint8_t(vm::Op_WRITE64));
+			emitter_reg_gen(self, ins.dst);
+			emitter_reg_gen(self, ins.src);
 			break;
 
 		case Tkn::KIND_KEYWORD_HALT:

@@ -1,5 +1,5 @@
 proc main
-	i32.load r2 0
+	i32.load r2 -2
 	i32.load r1 0
 	i32.jl r2 r1 negative
 	jmp maybe_positive

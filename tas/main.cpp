@@ -261,10 +261,12 @@ main(int argc, char** argv)
 		mn_defer(mn::buf_free(code));
 
 		auto cpu = vm::core_new();
+		mn_defer(vm::core_free(cpu));
 		while (cpu.state == vm::Core::STATE_OK)
 			vm::core_ins_execute(cpu, code);
 
 		mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
+		mn::print("R1 = {}\n", cpu.r[vm::Reg_R1].i32);
 		return 0;
 	}
 	return 0;

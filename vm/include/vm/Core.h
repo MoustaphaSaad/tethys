@@ -28,12 +28,20 @@ namespace vm
 		// any compare result will be put here
 		CMP cmp;
 		Reg_Val r[Reg_COUNT];
+
+		mn::Buf<uint8_t> stack_memory;
 	};
 
-	inline static Core
-	core_new()
+	VM_EXPORT Core
+	core_new();
+
+	VM_EXPORT void
+	core_free(Core& self);
+
+	inline static void
+	destruct(Core& self)
 	{
-		return Core{};
+		core_free(self);
 	}
 
 	VM_EXPORT void

@@ -24,7 +24,34 @@ namespace vm
 		return self.r[i];
 	}
 
+	inline static bool
+	_valid_ptr(Core& self, void* ptr)
+	{
+		return ptr <= end(self.stack_memory) && ptr >= begin(self.stack_memory);
+	}
+
+	inline static bool
+	_valid_next_bytes(Core& self, void* ptr, size_t size)
+	{
+		return _valid_ptr(self, ptr) && _valid_ptr(self, (uint8_t*)ptr + size);
+	}
+
 	// API
+	Core
+	core_new()
+	{
+		Core self{};
+		self.stack_memory = mn::buf_with_count<uint8_t>(8ULL * 1024ULL * 1024ULL);
+		self.r[Reg_SP].ptr = end(self.stack_memory);
+		return self;
+	}
+
+	void
+	core_free(Core& self)
+	{
+		mn::buf_free(self.stack_memory);
+	}
+
 	void
 	core_ins_execute(Core& self, const mn::Buf<uint8_t>& code)
 	{
@@ -377,6 +404,110 @@ namespace vm
 			{
 				self.r[Reg_IP].u64 += offset;
 			}
+			break;
+		}
+		case Op_READ8:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint8_t*)src.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 1) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			dst.u8 = *ptr;
+			break;
+		}
+		case Op_READ16:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint16_t*)src.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 2) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			dst.u16 = *ptr;
+			break;
+		}
+		case Op_READ32:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint32_t*)src.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 4) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			dst.u32 = *ptr;
+			break;
+		}
+		case Op_READ64:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint64_t*)src.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			dst.u64 = *ptr;
+			break;
+		}
+		case Op_WRITE8:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint8_t*)dst.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 1) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			*ptr = src.u8;
+			break;
+		}
+		case Op_WRITE16:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint16_t*)dst.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 2) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			*ptr = src.u16;
+			break;
+		}
+		case Op_WRITE32:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint32_t*)dst.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 4) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			*ptr = src.u32;
+			break;
+		}
+		case Op_WRITE64:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint64_t*)dst.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			*ptr = src.u64;
 			break;
 		}
 		case Op_HALT:

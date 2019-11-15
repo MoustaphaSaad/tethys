@@ -109,7 +109,8 @@ namespace as
 				tkn.kind == Tkn::KIND_KEYWORD_R5 ||
 				tkn.kind == Tkn::KIND_KEYWORD_R6 ||
 				tkn.kind == Tkn::KIND_KEYWORD_R7 ||
-				tkn.kind == Tkn::KIND_KEYWORD_IP);
+				tkn.kind == Tkn::KIND_KEYWORD_IP ||
+				tkn.kind == Tkn::KIND_KEYWORD_SP);
 	}
 
 	inline static Tkn
@@ -242,6 +243,27 @@ namespace as
 				tkn.kind == Tkn::KIND_KEYWORD_U64_JGE);
 	}
 
+	inline static bool
+	is_mem_transfer(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_I8_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_READ ||
+				tkn.kind == Tkn::KIND_KEYWORD_I8_WRITE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_WRITE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_WRITE ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_WRITE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_WRITE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_WRITE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_WRITE ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_WRITE);
+	}
+
 	inline static Ins
 	parser_ins(Parser* self)
 	{
@@ -266,6 +288,12 @@ namespace as
 			ins.dst = parser_reg(self);
 			ins.src = parser_reg(self);
 			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+		}
+		else if(is_mem_transfer(op))
+		{
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			ins.src = parser_reg(self);
 		}
 		else if (op.kind == Tkn::KIND_KEYWORD_JMP)
 		{
@@ -343,6 +371,10 @@ namespace as
 				else if(is_cond_jump(ins.op))
 				{
 					mn::print_to(out, "  {} {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str, ins.lbl.str);
+				}
+				else if(is_mem_transfer(ins.op))
+				{
+					mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
 				}
 				else if(ins.op.kind == Tkn::KIND_KEYWORD_JMP)
 				{
