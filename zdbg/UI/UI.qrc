@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/UI">
+        <file>qmldir</file>
+        <file>Theme.qml</file>
+        <file>TopBarButton.qml</file>
+    </qresource>
+</RCC>
