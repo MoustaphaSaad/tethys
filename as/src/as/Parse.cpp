@@ -264,6 +264,13 @@ namespace as
 				tkn.kind == Tkn::KIND_KEYWORD_U64_WRITE);
 	}
 
+	inline static bool
+	is_push_pop(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_PUSH ||
+				tkn.kind == Tkn::KIND_KEYWORD_POP);
+	}
+
 	inline static Ins
 	parser_ins(Parser* self)
 	{
@@ -294,6 +301,11 @@ namespace as
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			ins.src = parser_reg(self);
+		}
+		else if(is_push_pop(op))
+		{
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
 		}
 		else if (op.kind == Tkn::KIND_KEYWORD_JMP)
 		{
@@ -375,6 +387,10 @@ namespace as
 				else if(is_mem_transfer(ins.op))
 				{
 					mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
+				}
+				else if(is_push_pop(ins.op))
+				{
+					mn::print_to(out, "  {} {}\n", ins.op.str, ins.dst.str);
 				}
 				else if(ins.op.kind == Tkn::KIND_KEYWORD_JMP)
 				{
