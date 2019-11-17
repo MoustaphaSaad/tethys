@@ -848,6 +848,16 @@ namespace as
 			emitter_reg_gen(self, ins.src);
 			break;
 
+		case Tkn::KIND_KEYWORD_PUSH:
+			vm::push8(self.out, uint8_t(vm::Op_PUSH));
+			emitter_reg_gen(self, ins.dst);
+			break;
+
+		case Tkn::KIND_KEYWORD_POP:
+			vm::push8(self.out, uint8_t(vm::Op_POP));
+			emitter_reg_gen(self, ins.dst);
+			break;
+
 		case Tkn::KIND_KEYWORD_HALT:
 			vm::push8(self.out, uint8_t(vm::Op_HALT));
 			break;

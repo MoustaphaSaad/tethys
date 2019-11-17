@@ -107,6 +107,15 @@ namespace vm
 		Op_WRITE32,
 		Op_WRITE64,
 
+		// pushes the register into the stack and increment it
+		// PUSH [register]
+		Op_PUSH,
+
+		// pops the register into the stack and decrement it
+		// POP [register]
+		Op_POP,
+
+
 		Op_HALT,
 	};
 }

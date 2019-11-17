@@ -1,0 +1,15 @@
+proc main
+	i32.load r0 1
+	i32.load r1 2
+
+	push r0
+	push r1
+
+	i32.load r0 3
+	i32.load r1 4
+
+	pop r1
+	pop r0
+
+	halt
+end

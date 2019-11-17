@@ -510,6 +510,34 @@ namespace vm
 			*ptr = src.u64;
 			break;
 		}
+		case Op_PUSH:
+		{
+			auto& dst = self.r[Reg_SP];
+			auto& src = load_reg(self, code);
+			auto ptr = ((uint64_t*)dst.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			*ptr = src.u64;
+			dst.ptr = ptr;
+			break;
+		}
+		case Op_POP:
+		{
+			auto& dst = load_reg(self, code);
+			auto& src = self.r[Reg_SP];
+			auto ptr = ((uint64_t*)src.ptr);
+			if(_valid_next_bytes(self, ptr, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			dst.u64 = *ptr;
+			src.ptr = ptr + 1;
+			break;
+		}
 		case Op_HALT:
 			self.state = Core::STATE_HALT;
 			break;

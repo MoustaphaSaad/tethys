@@ -1904,3 +1904,153 @@ emitter_ins_gen(Emitter& self, const Ins& ins)
 ```
 
 and that's it now we can read and write to the stack memory as you've seen above
+
+### Day-10
+Today we'll add the `push` and `pop` instructions so we can rewrite the code from yesterday like this
+
+```asm
+proc main
+	i32.load r0 1
+	i32.load r1 2
+
+	push r0
+	push r1
+
+	i32.load r0 3
+	i32.load r1 4
+
+	pop r1
+	pop r0
+
+	halt
+end
+```
+
+You know how it goes by now, let's add it to the vm
+
+first let's add the opcode
+```C++
+enum Op: uint8_t
+{
+	...
+	// pushes the register into the stack and increment it
+	// PUSH [register]
+	Op_PUSH,
+
+	// pops the register into the stack and decrement it
+	// POP [register]
+	Op_POP,
+	...
+};
+```
+
+now let's implement it
+```C++
+void
+core_ins_execute(Core& self, const mn::Buf<uint8_t>& code)
+{
+	auto op = pop_op(self, code);
+	switch(op)
+	{
+	...
+	case Op_PUSH:
+	{
+		// load stack pointer
+		auto& dst = self.r[Reg_SP];
+		// load the source register to be written
+		auto& src = load_reg(self, code);
+		// allocate space for it on the stack
+		auto ptr = ((uint64_t*)dst.ptr - 1);
+		// check if the stack have enough space
+		if(_valid_next_bytes(self, ptr, 8) == false)
+		{
+			self.state = Core::STATE_ERR;
+			break;
+		}
+		// write the register to the stack
+		*ptr = src.u64;
+		// move the stack to the new position
+		dst.ptr = ptr;
+		break;
+	}
+	case Op_POP:
+	{
+		// load the dst register to be read to
+		auto& dst = load_reg(self, code);
+		// load stack pointer
+		auto& src = self.r[Reg_SP];
+		// get the stack pointer
+		auto ptr = ((uint64_t*)src.ptr);
+		// check if the stack have enough space
+		if(_valid_next_bytes(self, ptr, 8) == false)
+		{
+			self.state = Core::STATE_ERR;
+			break;
+		}
+		// read from the stack
+		dst.u64 = *ptr;
+		// deallocate the stack space
+		src.ptr = ptr + 1;
+		break;
+	}
+	...
+	}
+}
+```
+
+now let's add the tokens
+```C++
+// This is a list of the tokens
+#define TOKEN_LISTING \
+	...
+	TOKEN(KEYWORDS__BEGIN, ""), \
+	...
+	TOKEN(KEYWORD_PUSH, "push"), \
+	TOKEN(KEYWORD_POP, "pop"), \
+	...
+	TOKEN(KEYWORDS__END, ""),
+```
+
+then let's add it to parser
+```C++
+inline static Ins
+parser_ins(Parser* self)
+{
+	Ins ins{};
+
+	Tkn op = parser_look(self);
+	...
+	else if(is_push_pop(op))
+	{
+		ins.op = parser_eat(self);
+		ins.dst = parser_reg(self);
+	}
+	...
+
+	return ins;
+}
+```
+
+after that we'll add it the code generation
+```C++
+inline static void
+emitter_ins_gen(Emitter& self, const Ins& ins)
+{
+	switch(ins.op.kind)
+	{
+	...
+	case Tkn::KIND_KEYWORD_PUSH:
+		vm::push8(self.out, uint8_t(vm::Op_PUSH));
+		emitter_reg_gen(self, ins.dst);
+		break;
+
+	case Tkn::KIND_KEYWORD_POP:
+		vm::push8(self.out, uint8_t(vm::Op_POP));
+		emitter_reg_gen(self, ins.dst);
+		break;
+	...
+	}
+}
+```
+
+and that's it, now we have the push and pop instructions
