@@ -307,6 +307,15 @@ namespace as
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 		}
+		else if (op.kind == Tkn::KIND_KEYWORD_CALL)
+		{
+			ins.op = parser_eat(self);
+			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+		}
+		else if(op.kind == Tkn::KIND_KEYWORD_RET)
+		{
+			ins.op = parser_eat(self);
+		}
 		else if (op.kind == Tkn::KIND_KEYWORD_JMP)
 		{
 			ins.op = parser_eat(self);
@@ -391,6 +400,14 @@ namespace as
 				else if(is_push_pop(ins.op))
 				{
 					mn::print_to(out, "  {} {}\n", ins.op.str, ins.dst.str);
+				}
+				else if(ins.op.kind == Tkn::KIND_KEYWORD_CALL)
+				{
+					mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
+				}
+				else if(ins.op.kind == Tkn::KIND_KEYWORD_RET)
+				{
+					mn::print_to(out, "  {}\n", ins.op.str);
 				}
 				else if(ins.op.kind == Tkn::KIND_KEYWORD_JMP)
 				{

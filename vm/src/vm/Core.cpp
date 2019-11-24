@@ -538,6 +538,43 @@ namespace vm
 			src.ptr = ptr + 1;
 			break;
 		}
+		case Op_CALL:
+		{
+			// load proc address
+			auto address = pop64(code, self.r[Reg_IP].u64);
+			// load stack pointer
+			auto& SP = self.r[Reg_SP];
+			// allocate space for return address
+			auto ptr = ((uint64_t*)SP.ptr - 1);
+			if(_valid_next_bytes(self, ptr, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			// write the return address
+			*ptr = self.r[Reg_IP].u64;
+			// move the stack pointer
+			SP.ptr = ptr;
+			// jump to proc address
+			self.r[Reg_IP].u64 = address;
+			break;
+		}
+		case Op_RET:
+		{
+			// load stack pointer
+			auto& SP = self.r[Reg_SP];
+			auto ptr = ((uint64_t*)SP.ptr);
+			if(_valid_next_bytes(self, ptr, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			// restore the IP
+			self.r[Reg_IP].u64 = *ptr;
+			// deallocate the space for return address
+			SP.ptr = ptr;
+			break;
+		}
 		case Op_HALT:
 			self.state = Core::STATE_HALT;
 			break;

@@ -126,7 +126,7 @@ namespace as
 	}
 
 	inline static void
-	emitter_ins_gen(Emitter& self, const Ins& ins)
+	emitter_ins_gen(Emitter& self, const Ins& ins, const Proc& proc, vm::Pkg& pkg)
 	{
 		switch(ins.op.kind)
 		{
@@ -858,6 +858,16 @@ namespace as
 			emitter_reg_gen(self, ins.dst);
 			break;
 
+		case Tkn::KIND_KEYWORD_CALL:
+			vm::push8(self.out, uint8_t(vm::Op_CALL));
+			vm::pkg_reloc_add(pkg, mn::str_from_c(proc.name.str), self.out.count, mn::str_from_c(ins.lbl.str));
+			vm::push64(self.out, 0);
+			break;
+		
+		case Tkn::KIND_KEYWORD_RET:
+			vm::push8(self.out, uint8_t(vm::Op_RET));
+			break;
+
 		case Tkn::KIND_KEYWORD_HALT:
 			vm::push8(self.out, uint8_t(vm::Op_HALT));
 			break;
@@ -874,13 +884,13 @@ namespace as
 	}
 
 	inline static mn::Buf<uint8_t>
-	emitter_proc_gen(Emitter& self, const Proc& proc)
+	emitter_proc_gen(Emitter& self, const Proc& proc, vm::Pkg& pkg)
 	{
 		self.out = mn::buf_new<uint8_t>();
 
 		// emit the proc bytecode
 		for(const auto& ins: proc.ins)
-			emitter_ins_gen(self, ins);
+			emitter_ins_gen(self, ins, proc, pkg);
 
 		// do the fixups
 		for(auto fixup: self.fixups)
@@ -913,7 +923,7 @@ namespace as
 			auto emitter = emitter_new(src);
 			mn_defer(emitter_free(emitter));
 
-			auto code = emitter_proc_gen(emitter, src->procs[i]);
+			auto code = emitter_proc_gen(emitter, src->procs[i], pkg);
 			vm::pkg_proc_add(pkg, name, code);
 		}
 		return pkg;

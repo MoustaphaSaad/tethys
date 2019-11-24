@@ -257,7 +257,7 @@ main(int argc, char** argv)
 		auto pkg = vm::pkg_load(args.targets[0].ptr);
 		mn_defer(vm::pkg_free(pkg));
 
-		auto code = vm::pkg_load_proc(pkg, "main");
+		auto code = vm::pkg_bytecode_main_generate(pkg);
 		mn_defer(mn::buf_free(code));
 
 		auto cpu = vm::core_new();
