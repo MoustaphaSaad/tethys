@@ -916,15 +916,13 @@ namespace as
 	src_gen(Src* src)
 	{
 		auto pkg = vm::pkg_new();
-		for(size_t i = 0; i < src->procs.count; ++i)
+		for(const auto& proc: src->procs)
 		{
-			auto name = src->procs[i].name.str;
-
 			auto emitter = emitter_new(src);
 			mn_defer(emitter_free(emitter));
 
-			auto code = emitter_proc_gen(emitter, src->procs[i], pkg);
-			vm::pkg_proc_add(pkg, name, code);
+			auto code = emitter_proc_gen(emitter, proc, pkg);
+			vm::pkg_proc_add(pkg, proc.name.str, code);
 		}
 		return pkg;
 	}

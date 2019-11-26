@@ -2054,3 +2054,210 @@ emitter_ins_gen(Emitter& self, const Ins& ins)
 ```
 
 and that's it, now we have the push and pop instructions
+
+### Day-11
+
+Today is a big day, because today we'll add the `CALL` and `RET` instructions and we'll be able to call procedures. YAY
+
+```asm
+proc main
+	i32.load r0 1
+	i32.load r1 2
+
+	call add
+
+	halt
+end
+
+proc add
+	i32.add r0 r1
+	ret
+end
+```
+
+first we'll need to add it to the VM, let's start by adding the opcodes
+```C++
+enum Op
+{
+	...
+	// performs a call instruction
+	// CALL [address unsigned 64-bit]
+	Op_CALL,
+
+	// returns from proc calls
+	// RET
+	Op_RET,
+	...
+};
+```
+
+then we'll implement them
+```C++
+case Op_CALL:
+{
+	// load proc address
+	auto address = pop64(code, self.r[Reg_IP].u64);
+	// load stack pointer
+	auto& SP = self.r[Reg_SP];
+	// allocate space for return address
+	auto ptr = ((uint64_t*)SP.ptr - 1);
+	if(_valid_next_bytes(self, ptr, 8) == false)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	// write the return address
+	*ptr = self.r[Reg_IP].u64;
+	// move the stack pointer
+	SP.ptr = ptr;
+	// jump to proc address
+	self.r[Reg_IP].u64 = address;
+	break;
+}
+case Op_RET:
+{
+	// load stack pointer
+	auto& SP = self.r[Reg_SP];
+	auto ptr = ((uint64_t*)SP.ptr);
+	if(_valid_next_bytes(self, ptr, 8) == false)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	// restore the IP
+	self.r[Reg_IP].u64 = *ptr;
+	// deallocate the space for return address
+	SP.ptr = ptr;
+	break;
+}
+```
+
+then we'll need to add it to the assembler, let's add it to the tokens
+```C++
+TOKEN(KEYWORD_CALL, "call"), \
+TOKEN(KEYWORD_RET, "ret"), \
+```
+
+then we'll need to parse them
+```C++
+else if (op.kind == Tkn::KIND_KEYWORD_CALL)
+{
+	ins.op = parser_eat(self);
+	ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+}
+else if(op.kind == Tkn::KIND_KEYWORD_RET)
+{
+	ins.op = parser_eat(self);
+}
+```
+
+#### Relocation
+and let's do the code gen, now the problem with code generation is that we'll need to patch function addresses in call instructions, we can reuse the labels code but consider this
+let's say we'll need to reuse some code and instead of generating executable packages we'll need to generate library packages then we'll need to load functions in memory and stitch them as needed so here's the plan
+
+the assembler will add a relocation request in the package when it encounters a call instruction
+what's a relocation request?
+it's a request for the loader to patch this address when it loads the code in memory and it consists of the name of function (source function name), the offset inside this function bytecode (source offset), and the name of the target function (target function)
+
+so in the example above we'll have a relocation
+```
+Relocation {
+	source_name: main,
+	source_it: 21,
+	target_name: add
+}
+```
+that's basically telling the loader to patch an address inside main function with offset 21 byte and the address to write is the address of the target function which is add function
+
+let's execute the plan
+```C++
+case Tkn::KIND_KEYWORD_CALL:
+	vm::push8(self.out, uint8_t(vm::Op_CALL));
+	// register the relocation request
+	vm::pkg_reloc_add(pkg, mn::str_from_c(proc.name.str), self.out.count, mn::str_from_c(ins.lbl.str));
+	// put 0 placeholder for the loader to patch
+	vm::push64(self.out, 0);
+	break;
+
+case Tkn::KIND_KEYWORD_RET:
+	vm::push8(self.out, uint8_t(vm::Op_RET));
+	break;
+```
+
+then we'll need to add the relocations in the package
+```C++
+// relocations is used to fix proc address on loading in call instructions
+struct Reloc
+{
+	mn::Str source_name;
+	mn::Str target_name;
+	uint64_t source_offset;
+};
+
+struct Pkg
+{
+	mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
+	mn::Buf<Reloc> relocs;
+};
+```
+
+then we'll need to change the old `pkg_load_proc` function to be this new function
+```C++
+Bytecode
+pkg_bytecode_main_generate(const Pkg& self, mn::Allocator allocator)
+{
+	// result bytecode
+	auto res = mn::buf_with_allocator<uint8_t>(allocator);
+
+	// create a table of function names and their offset in the result bytecode
+	auto loaded_procs_table = mn::map_new<mn::Str, uint64_t>();
+	mn_defer(mn::map_free(loaded_procs_table));
+
+	// append each proc bytecode to the result bytecode array
+	for(auto it = mn::map_begin(self.procs);
+		it != mn::map_end(self.procs);
+		it = mn::map_next(self.procs, it))
+	{
+		// add the proc name and offset in the loaded_procs_table
+		mn::map_insert(loaded_procs_table, it->key, uint64_t(res.count));
+		// add proc bytecode to the res buffer
+		mn::buf_concat(res, it->value);
+	}
+
+	// after loading procs we'll need to perform the relocs
+	for(const auto& reloc: self.relocs)
+	{
+		auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
+		auto target_it = mn::map_lookup(loaded_procs_table, reloc.target_name);
+		assert(source_it && target_it);
+		write64(res.ptr + source_it->value + reloc.source_offset, target_it->value);
+	}
+
+	// search for main proc
+	auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));
+
+	// return the loaded bytecode and the main proc address
+	return Bytecode{res, main_it->value};
+}
+```
+
+and the last thing we'll need to do is to change the way we load code in our vm core
+```C++
+auto [code, main_address] = vm::pkg_bytecode_main_generate(pkg);
+mn_defer(mn::buf_free(code));
+
+auto cpu = vm::core_new();
+mn_defer(vm::core_free(cpu));
+
+// load the main address into the cpu core
+cpu.r[vm::Reg_IP].u64 = main_address;
+
+while (cpu.state == vm::Core::STATE_OK)
+	vm::core_ins_execute(cpu, code);
+```
+
+and that's it, if you run the code you'll get the result of adding 1 +  2 which is 3 in R0 register
+```
+R0 = 3
+R1 = 2
+```

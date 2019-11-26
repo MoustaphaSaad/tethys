@@ -77,12 +77,12 @@ namespace vm
 	}
 
 	// prepares the bytecode for vm execution
-	struct Bytecode_Result
+	struct Bytecode
 	{
 		mn::Buf<uint8_t> bytes;
 		uint64_t main_address;
 	};
 
-	VM_EXPORT mn::Buf<uint8_t>
+	VM_EXPORT Bytecode
 	pkg_bytecode_main_generate(const Pkg& self, mn::Allocator allocator = mn::allocator_top());
 }

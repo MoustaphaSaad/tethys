@@ -182,7 +182,7 @@ namespace vm
 		return self;
 	}
 
-	mn::Buf<uint8_t>
+	Bytecode
 	pkg_bytecode_main_generate(const Pkg& self, mn::Allocator allocator)
 	{
 		auto res = mn::buf_with_allocator<uint8_t>(allocator);
@@ -209,6 +209,8 @@ namespace vm
 			write64(res.ptr + source_it->value + reloc.source_offset, target_it->value);
 		}
 
-		return res;
+		auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));
+
+		return Bytecode{res, main_it->value};
 	}
 }
