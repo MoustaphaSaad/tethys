@@ -257,11 +257,15 @@ main(int argc, char** argv)
 		auto pkg = vm::pkg_load(args.targets[0].ptr);
 		mn_defer(vm::pkg_free(pkg));
 
-		auto code = vm::pkg_load_proc(pkg, "main");
+		auto [code, main_address] = vm::pkg_bytecode_main_generate(pkg);
 		mn_defer(mn::buf_free(code));
 
 		auto cpu = vm::core_new();
 		mn_defer(vm::core_free(cpu));
+
+		// load the main address into the cpu core
+		cpu.r[vm::Reg_IP].u64 = main_address;
+
 		while (cpu.state == vm::Core::STATE_OK)
 			vm::core_ins_execute(cpu, code);
 

@@ -115,6 +115,14 @@ namespace vm
 		// POP [register]
 		Op_POP,
 
+		// performs a call instruction
+		// CALL [address unsigned 64-bit]
+		Op_CALL,
+
+		// returns from proc calls
+		// RET
+		Op_RET,
+
 
 		Op_HALT,
 	};

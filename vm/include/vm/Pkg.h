@@ -8,9 +8,30 @@
 
 namespace vm
 {
+	// relocations is used to fix proc address on loading in call instructions
+	struct Reloc
+	{
+		mn::Str source_name;
+		mn::Str target_name;
+		uint64_t source_offset;
+	};
+
+	VM_EXPORT Reloc
+	reloc_new();
+
+	VM_EXPORT void
+	reloc_free(Reloc& self);
+
+	inline static void
+	destruct(Reloc& self)
+	{
+		reloc_free(self);
+	}
+
 	struct Pkg
 	{
 		mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
+		mn::Buf<Reloc> relocs;
 	};
 
 	VM_EXPORT Pkg
@@ -35,6 +56,9 @@ namespace vm
 	}
 
 	VM_EXPORT void
+	pkg_reloc_add(Pkg& self, mn::Str source_name, uint64_t source_offset, mn::Str target_name);
+
+	VM_EXPORT void
 	pkg_save(const Pkg& self, const mn::Str& filename);
 
 	inline static void
@@ -53,12 +77,12 @@ namespace vm
 	}
 
 	// prepares the bytecode for vm execution
-	VM_EXPORT mn::Buf<uint8_t>
-	pkg_load_proc(const Pkg& self, const mn::Str& name);
-
-	inline static mn::Buf<uint8_t>
-	pkg_load_proc(const Pkg& self, const char* name)
+	struct Bytecode
 	{
-		return pkg_load_proc(self, mn::str_lit(name));
-	}
+		mn::Buf<uint8_t> bytes;
+		uint64_t main_address;
+	};
+
+	VM_EXPORT Bytecode
+	pkg_bytecode_main_generate(const Pkg& self, mn::Allocator allocator = mn::allocator_top());
 }
