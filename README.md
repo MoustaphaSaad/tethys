@@ -2261,3 +2261,151 @@ and that's it, if you run the code you'll get the result of adding 1 +  2 which 
 R0 = 3
 R1 = 2
 ```
+
+### Day-12
+
+Today we'll make some quality of life improvements. We'll add immediate versions of our instructions so that you can write
+
+```asm
+i32.add r0 5
+```
+
+instead of 
+
+```asm
+i32.load r1 5
+i32.add r0 r1
+```
+
+and we'll do it for `add`, `sub`, `mul`, `imul`, `div`, `idiv`, `cmp`, `icmp`
+
+let's go
+
+#### VM Support
+
+First we'll need to add the opcodes
+
+```C++
+// IMMADD [dst + op1] [immediate argument (8-bit, 16-bit, 32-bit, 64-bit number)]
+Op_IMMADD8,
+Op_IMMADD16,
+Op_IMMADD32,
+Op_IMMADD64,
+```
+
+Then we'll implement them
+
+```C++
+case Op_IMMADD8:
+{
+    auto& dst = load_reg(self, code);
+    auto imm = pop8(code, self.r[Reg_IP].u64);
+    dst.u8 += imm;
+    break;
+}
+case Op_IMMADD16:
+{
+    auto& dst = load_reg(self, code);
+    auto imm = pop16(code, self.r[Reg_IP].u64);
+    dst.u16 += imm;
+    break;
+}
+case Op_IMMADD32:
+{
+    auto& dst = load_reg(self, code);
+    auto imm = pop32(code, self.r[Reg_IP].u64);
+    dst.u32 += imm;
+    break;
+}
+case Op_IMMADD64:
+{
+    auto& dst = load_reg(self, code);
+    auto imm = pop64(code, self.r[Reg_IP].u64);
+    dst.u64 += imm;
+    break;
+}
+```
+
+You can do the same for the other instructions we have listed above
+
+#### Assembler Support
+
+Now let's make our assembler generate these instructions.
+
+First we'll need to parse them. We'll edit the parsing of our arithmetic and conditional jump instructions
+
+```C++
+else if (is_arithmetic(op))
+{
+    ins.op = parser_eat(self);
+    ins.dst = parser_reg(self);
+    auto src = parser_look(self);
+    if (src.kind == Tkn::KIND_INTEGER || is_reg(src))
+        ins.src = parser_eat(self);
+    else
+        src_err(self->src, src, mn::strf("expected an integer or a register"));
+}
+else if (is_cond_jump(op))
+{
+    ins.op = parser_eat(self);
+    ins.dst = parser_reg(self);
+    auto src = parser_look(self);
+    if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
+        ins.src = parser_eat(self);
+    else
+        src_err(self->src, src, mn::strf("expected an integer or a register"));
+    ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+}
+```
+
+Then we'll need to add them to code gen
+
+```C++
+case Tkn::KIND_KEYWORD_I32_ADD:
+    if (is_reg(ins.src))
+    {
+        vm::push8(self.out, uint8_t(vm::Op_ADD32));
+        emitter_reg_gen(self, ins.dst);
+        emitter_reg_gen(self, ins.src);
+    }
+    else if(ins.src.kind == Tkn::KIND_INTEGER)
+    {
+        vm::push8(self.out, uint8_t(vm::Op_IMMADD32));
+        emitter_reg_gen(self, ins.dst);
+        vm::push32(self.out, uint32_t(convert_to<int32_t>(ins.src)));
+    }
+    break;
+
+case Tkn::KIND_KEYWORD_U32_ADD:
+    if (is_reg(ins.src))
+    {
+        vm::push8(self.out, uint8_t(vm::Op_ADD32));
+        emitter_reg_gen(self, ins.dst);
+        emitter_reg_gen(self, ins.src);
+    }
+    else if(ins.src.kind == Tkn::KIND_INTEGER)
+    {
+        vm::push8(self.out, uint8_t(vm::Op_IMMADD32));
+        emitter_reg_gen(self, ins.dst);
+        vm::push32(self.out, convert_to<uint32_t>(ins.src));
+    }
+    break;
+```
+
+And just like that we're now able to do this
+
+```asm
+i32.load r2 -2
+i32.jl r2 0 negative
+jmp maybe_positive
+```
+
+Instead of this
+
+```asm
+i32.load r2 -2
+i32.load r1 0
+i32.jl r2 r1 negative
+jmp maybe_positive
+```
+

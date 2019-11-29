@@ -110,6 +110,34 @@ namespace vm
 			dst.u64 += src.u64;
 			break;
 		}
+		case Op_IMMADD8:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop8(code, self.r[Reg_IP].u64);
+			dst.u8 += imm;
+			break;
+		}
+		case Op_IMMADD16:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop16(code, self.r[Reg_IP].u64);
+			dst.u16 += imm;
+			break;
+		}
+		case Op_IMMADD32:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop32(code, self.r[Reg_IP].u64);
+			dst.u32 += imm;
+			break;
+		}
+		case Op_IMMADD64:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop64(code, self.r[Reg_IP].u64);
+			dst.u64 += imm;
+			break;
+		}
 		case Op_SUB8:
 		{
 			auto& dst = load_reg(self, code);
@@ -136,6 +164,34 @@ namespace vm
 			auto& dst = load_reg(self, code);
 			auto& src = load_reg(self, code);
 			dst.u64 -= src.u64;
+			break;
+		}
+		case Op_IMMSUB8:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop8(code, self.r[Reg_IP].u64);
+			dst.u8 -= imm;
+			break;
+		}
+		case Op_IMMSUB16:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop16(code, self.r[Reg_IP].u64);
+			dst.u16 -= imm;
+			break;
+		}
+		case Op_IMMSUB32:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop32(code, self.r[Reg_IP].u64);
+			dst.u32 -= imm;
+			break;
+		}
+		case Op_IMMSUB64:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop64(code, self.r[Reg_IP].u64);
+			dst.u64 -= imm;
 			break;
 		}
 		case Op_MUL8:
@@ -166,6 +222,34 @@ namespace vm
 			dst.u64 *= src.u64;
 			break;
 		}
+		case Op_IMMMUL8:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop8(code, self.r[Reg_IP].u64);
+			dst.u8 *= imm;
+			break;
+		}
+		case Op_IMMMUL16:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop16(code, self.r[Reg_IP].u64);
+			dst.u16 *= imm;
+			break;
+		}
+		case Op_IMMMUL32:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop32(code, self.r[Reg_IP].u64);
+			dst.u32 *= imm;
+			break;
+		}
+		case Op_IMMMUL64:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop64(code, self.r[Reg_IP].u64);
+			dst.u64 *= imm;
+			break;
+		}
 		case Op_IMUL8:
 		{
 			auto& dst = load_reg(self, code);
@@ -192,6 +276,34 @@ namespace vm
 			auto& dst = load_reg(self, code);
 			auto& src = load_reg(self, code);
 			dst.i64 *= src.i64;
+			break;
+		}
+		case Op_IMMIMUL8:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int8_t(pop8(code, self.r[Reg_IP].u64));
+			dst.i8 *= imm;
+			break;
+		}
+		case Op_IMMIMUL16:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int16_t(pop16(code, self.r[Reg_IP].u64));
+			dst.i16 *= imm;
+			break;
+		}
+		case Op_IMMIMUL32:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int32_t(pop32(code, self.r[Reg_IP].u64));
+			dst.i32 *= imm;
+			break;
+		}
+		case Op_IMMIMUL64:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int64_t(pop64(code, self.r[Reg_IP].u64));
+			dst.i64 *= imm;
 			break;
 		}
 		case Op_DIV8:
@@ -222,6 +334,34 @@ namespace vm
 			dst.u64 /= src.u64;
 			break;
 		}
+		case Op_IMMDIV8:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop8(code, self.r[Reg_IP].u64);
+			dst.u8 /= imm;
+			break;
+		}
+		case Op_IMMDIV16:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop16(code, self.r[Reg_IP].u64);
+			dst.u16 /= imm;
+			break;
+		}
+		case Op_IMMDIV32:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop32(code, self.r[Reg_IP].u64);
+			dst.u32 /= imm;
+			break;
+		}
+		case Op_IMMDIV64:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = pop64(code, self.r[Reg_IP].u64);
+			dst.u64 /= imm;
+			break;
+		}
 		case Op_IDIV8:
 		{
 			auto& dst = load_reg(self, code);
@@ -248,6 +388,34 @@ namespace vm
 			auto& dst = load_reg(self, code);
 			auto& src = load_reg(self, code);
 			dst.i64 /= src.i64;
+			break;
+		}
+		case Op_IMMIDIV8:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int8_t(pop8(code, self.r[Reg_IP].u64));
+			dst.i8 /= imm;
+			break;
+		}
+		case Op_IMMIDIV16:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int16_t(pop16(code, self.r[Reg_IP].u64));
+			dst.i16 /= imm;
+			break;
+		}
+		case Op_IMMIDIV32:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int32_t(pop32(code, self.r[Reg_IP].u64));
+			dst.i32 /= imm;
+			break;
+		}
+		case Op_IMMIDIV64:
+		{
+			auto& dst = load_reg(self, code);
+			auto imm = int64_t(pop64(code, self.r[Reg_IP].u64));
+			dst.i64 /= imm;
 			break;
 		}
 		case Op_CMP8:
@@ -298,6 +466,54 @@ namespace vm
 				self.cmp = Core::CMP_EQUAL;
 			break;
 		}
+		case Op_IMMCMP8:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = pop8(code, self.r[Reg_IP].u64);
+			if (op1.u8 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u8 < imm)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_IMMCMP16:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = pop16(code, self.r[Reg_IP].u64);
+			if (op1.u16 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u16 < imm)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_IMMCMP32:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = pop32(code, self.r[Reg_IP].u64);
+			if (op1.u32 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u32 < imm)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_IMMCMP64:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = pop64(code, self.r[Reg_IP].u64);
+			if (op1.u64 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.u64 < imm)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
 		case Op_ICMP8:
 		{
 			auto& op1 = load_reg(self, code);
@@ -341,6 +557,54 @@ namespace vm
 			if (op1.i64 > op2.i64)
 				self.cmp = Core::CMP_GREATER;
 			else if (op1.i64 < op2.i64)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_IMMICMP8:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = int8_t(pop8(code, self.r[Reg_IP].u64));
+			if (op1.i8 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i8 < imm)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_IMMICMP16:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = int16_t(pop16(code, self.r[Reg_IP].u64));
+			if (op1.i16 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i16 < imm)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_IMMICMP32:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = int32_t(pop32(code, self.r[Reg_IP].u64));
+			if (op1.i32 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i32 < imm)
+				self.cmp = Core::CMP_LESS;
+			else
+				self.cmp = Core::CMP_EQUAL;
+			break;
+		}
+		case Op_IMMICMP64:
+		{
+			auto& op1 = load_reg(self, code);
+			auto imm = int64_t(pop64(code, self.r[Reg_IP].u64));
+			if (op1.i64 > imm)
+				self.cmp = Core::CMP_GREATER;
+			else if (op1.i64 < imm)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
