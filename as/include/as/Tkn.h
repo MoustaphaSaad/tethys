@@ -29,6 +29,21 @@ namespace as
 
 		inline operator bool() const { return kind != KIND_NONE; }
 	};
+
+	inline static bool
+	is_reg(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_R0 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R1 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R2 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R3 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R4 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R5 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R6 ||
+				tkn.kind == Tkn::KIND_KEYWORD_R7 ||
+				tkn.kind == Tkn::KIND_KEYWORD_IP ||
+				tkn.kind == Tkn::KIND_KEYWORD_SP);
+	}
 }
 
 #undef TOKEN_LISTING

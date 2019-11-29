@@ -98,21 +98,6 @@ namespace as
 		return Tkn{};
 	}
 
-	inline static bool
-	is_reg(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_R0 ||
-				tkn.kind == Tkn::KIND_KEYWORD_R1 ||
-				tkn.kind == Tkn::KIND_KEYWORD_R2 ||
-				tkn.kind == Tkn::KIND_KEYWORD_R3 ||
-				tkn.kind == Tkn::KIND_KEYWORD_R4 ||
-				tkn.kind == Tkn::KIND_KEYWORD_R5 ||
-				tkn.kind == Tkn::KIND_KEYWORD_R6 ||
-				tkn.kind == Tkn::KIND_KEYWORD_R7 ||
-				tkn.kind == Tkn::KIND_KEYWORD_IP ||
-				tkn.kind == Tkn::KIND_KEYWORD_SP);
-	}
-
 	inline static Tkn
 	parser_reg(Parser* self)
 	{
@@ -287,13 +272,21 @@ namespace as
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
-			ins.src = parser_reg(self);
+			auto src = parser_look(self);
+			if (src.kind == Tkn::KIND_INTEGER || is_reg(src))
+				ins.src = parser_eat(self);
+			else
+				src_err(self->src, src, mn::strf("expected an integer or a register"));
 		}
 		else if (is_cond_jump(op))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
-			ins.src = parser_reg(self);
+			auto src = parser_look(self);
+			if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
+				ins.src = parser_eat(self);
+			else
+				src_err(self->src, src, mn::strf("expected an integer or a register"));
 			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
 		}
 		else if(is_mem_transfer(op))

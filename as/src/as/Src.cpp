@@ -81,7 +81,7 @@ namespace as
 			//we need to put ^^^ under the word the compiler means by the error
 			if(e.rng.begin && e.rng.end)
 			{
-				mn::print_to(out, ">> {:{}}\n", l.end - l.begin, l.begin);
+				mn::print_to(out, ">> {}\n", mn::str_from_substr(l.begin, l.end, mn::memory::tmp()));
 				mn::print_to(out, ">> ");
 				for(const char* it = l.begin; it != l.end; it = mn::rune_next(it))
 				{
