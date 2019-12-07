@@ -1,6 +1,7 @@
 // This is a list of the tokens
 #define TOKEN_LISTING \
 	TOKEN(NONE, "<NONE>"), \
+	TOKEN(COMMENT, "<COMMENT>"), \
 	TOKEN(COLON, ":"), \
 	TOKEN(ID, "<ID>"), \
 	TOKEN(INTEGER, "<INTEGER>"), \

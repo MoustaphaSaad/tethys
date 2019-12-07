@@ -236,6 +236,25 @@ namespace as
 		return true;
 	}
 
+	inline static const char*
+	scanner_comment(Scanner* self)
+	{
+		auto begin_it = self->it;
+		auto prev = self->c;
+		while (self->c != '\n')
+		{
+			prev = self->c;
+			if (scanner_eat(self) == false)
+				break;
+		}
+
+		auto end_it = self->it;
+		if (prev == '\r')
+			--end_it;
+
+		return mn::str_intern(self->src->str_table, begin_it, end_it);
+	}
+
 	inline static Tkn
 	scanner_tkn(Scanner* self)
 	{
@@ -280,12 +299,18 @@ namespace as
 			Pos begin_pos = self->pos;
 			scanner_eat(self);
 			bool no_intern = false;
-			
+
 			switch(c)
 			{
 			case ':':
 				tkn.kind = Tkn::KIND_COLON;
 				tkn.str = ":";
+				no_intern = true;
+				break;
+			case ';':
+				tkn.kind = Tkn::KIND_COMMENT;
+				tkn.str = scanner_comment(self);
+				no_intern = true;
 				break;
 			default:
 				src_err(self->src, begin_pos, mn::strf("illegal character {}", self->c));

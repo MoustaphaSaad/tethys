@@ -2409,3 +2409,69 @@ i32.jl r2 r1 negative
 jmp maybe_positive
 ```
 
+### Day-13
+
+Today we'll add comments support in our assembler
+
+```asm
+; this is the main procedure
+proc main
+	i32.load r2 -2; this is equal to r2 = -2
+end
+```
+
+first we'll address the token scanning part by adding the comment token to our list
+```C++
+TOKEN(COMMENT, "<COMMENT>"), \
+```
+then we'll add the support in the scanner
+```C++
+case ';':
+	tkn.kind = Tkn::KIND_COMMENT;
+	tkn.str = scanner_comment(self);
+	break;
+```
+and we'll of course add the `scanner_comment` function which consumes the characters till the newline character
+```C++
+inline static const char*
+scanner_comment(Scanner* self)
+{
+	auto begin_it = self->it;
+	auto prev = self->c;
+	while (self->c != '\n')
+	{
+		prev = self->c;
+		if (scanner_eat(self) == false)
+			break;
+	}
+
+	auto end_it = self->it;
+	if (prev == '\r')
+		--end_it;
+
+	return mn::str_intern(self->src->str_table, begin_it, end_it);
+}
+```
+
+Now the only remaining part is the parser, the change is as simple as removing any tokens that the parser doesn't care about like the comment tokens
+```C++
+inline static bool
+tkn_is_ignore(const Tkn& tkn)
+{
+	return tkn.kind == Tkn::KIND_COMMENT;
+}
+
+inline static Parser
+parser_new(Src* src)
+{
+	Parser self{};
+	self.src = src;
+	self.tkns = mn::buf_clone(src->tkns);
+	self.ix = 0;
+	// remove ignore tokens
+	mn::buf_remove_if(self.tkns, [](const Tkn& tkn) { return tkn_is_ignore(tkn); });
+	return self;
+}
+```
+
+and that's it
