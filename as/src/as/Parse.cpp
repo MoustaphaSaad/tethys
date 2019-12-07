@@ -12,6 +12,12 @@ namespace as
 		size_t ix;
 	};
 
+	inline static bool
+	tkn_is_ignore(const Tkn& tkn)
+	{
+		return tkn.kind == Tkn::KIND_COMMENT;
+	}
+
 	inline static Parser
 	parser_new(Src* src)
 	{
@@ -19,6 +25,8 @@ namespace as
 		self.src = src;
 		self.tkns = mn::buf_clone(src->tkns);
 		self.ix = 0;
+		// remove ignore tokens
+		mn::buf_remove_if(self.tkns, [](const Tkn& tkn) { return tkn_is_ignore(tkn); });
 		return self;
 	}
 

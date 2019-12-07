@@ -1,6 +1,7 @@
 proc main
+	; this is program to check the sign of the number in r2
 	i32.load r2 -2
-	i32.jl r2 0 negative
+	i32.jl r2 0 negative ;jump if less r2 < 0 to negative label
 	jmp maybe_positive
 
 negative:
