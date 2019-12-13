@@ -50,6 +50,20 @@
 	TOKEN(KEYWORD_U16_DIV, "u16.div"), \
 	TOKEN(KEYWORD_U32_DIV, "u32.div"), \
 	TOKEN(KEYWORD_U64_DIV, "u64.div"), \
+	TOKEN(KEYWORD_I8_CMP, "i8.cmp"), \
+	TOKEN(KEYWORD_I16_CMP, "i16.cmp"), \
+	TOKEN(KEYWORD_I32_CMP, "i32.cmp"), \
+	TOKEN(KEYWORD_I64_CMP, "i64.cmp"), \
+	TOKEN(KEYWORD_U8_CMP, "u8.cmp"), \
+	TOKEN(KEYWORD_U16_CMP, "u16.cmp"), \
+	TOKEN(KEYWORD_U32_CMP, "u32.cmp"), \
+	TOKEN(KEYWORD_U64_CMP, "u64.cmp"), \
+	TOKEN(KEYWORD_JE, "je"), \
+	TOKEN(KEYWORD_JNE, "jne"), \
+	TOKEN(KEYWORD_JL, "jl"), \
+	TOKEN(KEYWORD_JLE, "jle"), \
+	TOKEN(KEYWORD_JG, "jg"), \
+	TOKEN(KEYWORD_JGE, "jge"), \
 	TOKEN(KEYWORD_JMP, "jmp"), \
 	TOKEN(KEYWORD_I8_JE, "i8.je"), \
 	TOKEN(KEYWORD_I16_JE, "i16.je"), \

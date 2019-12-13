@@ -2475,3 +2475,173 @@ parser_new(Src* src)
 ```
 
 and that's it
+
+### Day-14
+
+Today we'll add the ability to explicitly do cmp instruction.
+When you needed to do a conditional jump like this
+```asm
+i32.jl r2 0 negative
+```
+the assembler will implicitly generate a cmp and a jl instruction so it will translate it to
+```asm
+i32.cmp r2 0
+jl negative
+```
+but you couldn't have written these two instructions yourself, today we fix that by adding these two
+instructions to the assembler
+
+First we'll add them to our TokenListing file
+```C++
+TOKEN(KEYWORD_I8_CMP, "i8.cmp"), \
+TOKEN(KEYWORD_I16_CMP, "i16.cmp"), \
+TOKEN(KEYWORD_I32_CMP, "i32.cmp"), \
+TOKEN(KEYWORD_I64_CMP, "i64.cmp"), \
+TOKEN(KEYWORD_U8_CMP, "u8.cmp"), \
+TOKEN(KEYWORD_U16_CMP, "u16.cmp"), \
+TOKEN(KEYWORD_U32_CMP, "u32.cmp"), \
+TOKEN(KEYWORD_U64_CMP, "u64.cmp"), \
+TOKEN(KEYWORD_JE, "je"), \
+TOKEN(KEYWORD_JNE, "jne"), \
+TOKEN(KEYWORD_JL, "jl"), \
+TOKEN(KEYWORD_JLE, "jle"), \
+TOKEN(KEYWORD_JG, "jg"), \
+TOKEN(KEYWORD_JGE, "jge"), \
+```
+
+now we'll need to change the parser, first we'll need to add these functions
+```C++
+inline static bool
+is_cmp(const Tkn& tkn)
+{
+	return (tkn.kind == Tkn::KIND_KEYWORD_I8_CMP ||
+			tkn.kind == Tkn::KIND_KEYWORD_I16_CMP ||
+			tkn.kind == Tkn::KIND_KEYWORD_I32_CMP ||
+			tkn.kind == Tkn::KIND_KEYWORD_I64_CMP ||
+			tkn.kind == Tkn::KIND_KEYWORD_U8_CMP ||
+			tkn.kind == Tkn::KIND_KEYWORD_U16_CMP ||
+			tkn.kind == Tkn::KIND_KEYWORD_U32_CMP ||
+			tkn.kind == Tkn::KIND_KEYWORD_U64_CMP);
+}
+
+inline static bool
+is_pure_jump(const Tkn& tkn)
+{
+	return (tkn.kind == Tkn::KIND_KEYWORD_JE ||
+			tkn.kind == Tkn::KIND_KEYWORD_JNE ||
+			tkn.kind == Tkn::KIND_KEYWORD_JL ||
+			tkn.kind == Tkn::KIND_KEYWORD_JLE ||
+			tkn.kind == Tkn::KIND_KEYWORD_JG ||
+			tkn.kind == Tkn::KIND_KEYWORD_JGE ||
+			tkn.kind == Tkn::KIND_KEYWORD_JMP);
+}
+```
+
+then we'll change the parser_ins function
+```C++
+else if (is_pure_jump(op))
+{
+	ins.op = parser_eat(self);
+	ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+}
+else if(is_cmp(op))
+{
+	ins.op = parser_eat(self);
+	ins.dst = parser_reg(self);
+	auto src = parser_look(self);
+	if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
+		ins.src = parser_eat(self);
+	else
+		src_err(self->src, src, mn::strf("expected an integer or a register"));
+}
+```
+
+last thing to do is add them to our code gen pass
+```C++
+case Tkn::KIND_KEYWORD_JE:
+	vm::push8(self.out, uint8_t(vm::Op_JE));
+	emitter_label_fixup_request(self, ins.lbl);
+	break;
+
+case Tkn::KIND_KEYWORD_JNE:
+	vm::push8(self.out, uint8_t(vm::Op_JNE));
+	emitter_label_fixup_request(self, ins.lbl);
+	break;
+
+case Tkn::KIND_KEYWORD_JL:
+	vm::push8(self.out, uint8_t(vm::Op_JL));
+	emitter_label_fixup_request(self, ins.lbl);
+	break;
+
+case Tkn::KIND_KEYWORD_JLE:
+	vm::push8(self.out, uint8_t(vm::Op_JLE));
+	emitter_label_fixup_request(self, ins.lbl);
+	break;
+
+case Tkn::KIND_KEYWORD_JG:
+	vm::push8(self.out, uint8_t(vm::Op_JG));
+	emitter_label_fixup_request(self, ins.lbl);
+	break;
+
+case Tkn::KIND_KEYWORD_JGE:
+	vm::push8(self.out, uint8_t(vm::Op_JGE));
+	emitter_label_fixup_request(self, ins.lbl);
+	break;
+...
+case Tkn::KIND_KEYWORD_I8_CMP:
+	if(is_reg(ins.src))
+	{
+		vm::push8(self.out, uint8_t(vm::Op_ICMP8));
+		emitter_reg_gen(self, ins.dst);
+		emitter_reg_gen(self, ins.src);
+	}
+	else if(ins.src.kind == Tkn::KIND_INTEGER)
+	{
+		vm::push8(self.out, uint8_t(vm::Op_IMMICMP8));
+		emitter_reg_gen(self, ins.dst);
+		vm::push8(self.out, uint8_t(convert_to<int8_t>(ins.src)));
+	}
+	break;
+...
+case Tkn::KIND_KEYWORD_U8_CMP:
+	if(is_reg(ins.src))
+	{
+		vm::push8(self.out, uint8_t(vm::Op_CMP8));
+		emitter_reg_gen(self, ins.dst);
+		emitter_reg_gen(self, ins.src);
+	}
+	else if(ins.src.kind == Tkn::KIND_INTEGER)
+	{
+		vm::push8(self.out, uint8_t(vm::Op_IMMCMP8));
+		emitter_reg_gen(self, ins.dst);
+		vm::push8(self.out, convert_to<uint8_t>(ins.src));
+	}
+	break;
+```
+
+and that's it now we can write the sign function from earlier like this, with one compare and three conditional branches
+```asm
+proc main
+	; this is program to check the sign of the number in r2
+	i32.load r2 -2
+	i32.cmp r2 0 ; one compare
+	; three conditional branches
+	jl negative
+	jg positive
+	je zero
+
+negative:
+	i32.load r0 -1
+	jmp exit
+
+positive:
+	i32.load r0 1
+	jmp exit
+
+zero:
+	i32.load r0 0
+
+exit:
+	halt
+end
+```
