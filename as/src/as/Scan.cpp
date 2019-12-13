@@ -255,6 +255,29 @@ namespace as
 		return mn::str_intern(self->src->str_table, begin_it, end_it);
 	}
 
+	inline static const char*
+	scanner_string(Scanner* self)
+	{
+		auto begin_it = self->it;
+		auto end_it = self->it;
+
+		auto prev = self->c;
+		// eat all runes even those escaped by \ like \"
+		while(self->c != '"' || prev == '\\')
+		{
+			if (scanner_eat(self) == false)
+			{
+				src_err(self->src, self->pos, mn::strf("unterminated string"));
+				break;
+			}
+			prev = self->c;
+		}
+
+		end_it = self->it;
+		scanner_eat(self); // for the "
+		return mn::str_intern(self->src->str_table, begin_it, end_it);
+	}
+
 	inline static Tkn
 	scanner_tkn(Scanner* self)
 	{
@@ -310,6 +333,11 @@ namespace as
 			case ';':
 				tkn.kind = Tkn::KIND_COMMENT;
 				tkn.str = scanner_comment(self);
+				no_intern = true;
+				break;
+			case '"':
+				tkn.kind = Tkn::KIND_STRING;
+				tkn.str = scanner_string(self);
 				no_intern = true;
 				break;
 			default:

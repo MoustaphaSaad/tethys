@@ -2,6 +2,8 @@
 #include "vm/Op.h"
 #include "vm/Util.h"
 
+#include <mn/IO.h>
+
 namespace vm
 {
 	inline static Op
@@ -837,6 +839,12 @@ namespace vm
 			self.r[Reg_IP].u64 = *ptr;
 			// deallocate the space for return address
 			SP.ptr = ptr;
+			break;
+		}
+		case Op_DEBUGSTR:
+		{
+			auto& str_address = load_reg(self, code);
+			mn::print("DEBUG: '{}'", (const char*)str_address.ptr);
 			break;
 		}
 		case Op_HALT:
