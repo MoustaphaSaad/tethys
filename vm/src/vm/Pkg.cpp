@@ -109,6 +109,20 @@ namespace vm
 		mn::buf_push(self.relocs, Reloc{ source_name, target_name, source_offset });
 	}
 
+	bool
+	pkg_constant_add(Pkg& self, mn::Str constant_name, mn::Block bytes)
+	{
+		auto it = mn::map_lookup(self.constants, constant_name);
+		assert(it == nullptr);
+		if (it != nullptr)
+			return false;
+
+		auto buf = mn::buf_with_count<uint8_t>(bytes.size);
+		::memcpy(buf.ptr, bytes.ptr, bytes.size);
+		mn::map_insert(self.constants, constant_name, buf);
+		return true;
+	}
+
 	void
 	pkg_save(const Pkg& self, const mn::Str& filename)
 	{
@@ -139,6 +153,19 @@ namespace vm
 			write_string(f, reloc.source_name);
 			write_string(f, reloc.target_name);
 			mn::stream_write(f, mn::block_from(reloc.source_offset));
+		}
+
+		// write constants count
+		len = uint32_t(self.constants.count);
+		mn::stream_write(f, mn::block_from(len));
+
+		// write each constant
+		for(auto it = mn::map_begin(self.constants);
+			it != mn::map_end(self.constants);
+			it = mn::map_next(self.constants, it))
+		{
+			write_string(f, it->key);
+			write_bytes(f, it->value);
 		}
 	}
 
@@ -177,6 +204,19 @@ namespace vm
 			reloc.target_name = read_string(f);
 			mn::stream_read(f, mn::block_from(reloc.source_offset));
 			mn::buf_push(self.relocs, reloc);
+		}
+
+		// read constants count
+		len = 0;
+		mn::stream_read(f, mn::block_from(len));
+		mn::map_reserve(self.constants, len);
+
+		// read each constant
+		for(size_t i = 0; i < len; ++i)
+		{
+			auto name = read_string(f);
+			auto bytes = read_bytes(f);
+			mn::map_insert(self.constants, name, bytes);
 		}
 
 		return self;

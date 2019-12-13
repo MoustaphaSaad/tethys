@@ -30,6 +30,7 @@ namespace vm
 
 	struct Pkg
 	{
+		mn::Map<mn::Str, mn::Buf<uint8_t>> constants;
 		mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
 		mn::Buf<Reloc> relocs;
 	};
@@ -57,6 +58,9 @@ namespace vm
 
 	VM_EXPORT void
 	pkg_reloc_add(Pkg& self, mn::Str source_name, uint64_t source_offset, mn::Str target_name);
+
+	VM_EXPORT bool
+	pkg_constant_add(Pkg& self, mn::Str constant_name, mn::Block bytes);
 
 	VM_EXPORT void
 	pkg_save(const Pkg& self, const mn::Str& filename);

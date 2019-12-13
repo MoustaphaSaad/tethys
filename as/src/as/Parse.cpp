@@ -367,6 +367,12 @@ namespace as
 		{
 			ins.op = parser_eat(self);
 		}
+		else if(op.kind == Tkn::KIND_KEYWORD_CONSTANT)
+		{
+			ins.op = parser_eat(self);
+			ins.dst = parser_eat_must(self, Tkn::KIND_ID);
+			ins.src = parser_eat_must(self, Tkn::KIND_STRING);
+		}
 
 		return ins;
 	}
