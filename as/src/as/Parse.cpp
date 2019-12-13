@@ -264,6 +264,31 @@ namespace as
 				tkn.kind == Tkn::KIND_KEYWORD_POP);
 	}
 
+	inline static bool
+	is_cmp(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_I8_CMP ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16_CMP ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32_CMP ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64_CMP ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8_CMP ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16_CMP ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32_CMP ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64_CMP);
+	}
+
+	inline static bool
+	is_pure_jump(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_JE ||
+				tkn.kind == Tkn::KIND_KEYWORD_JNE ||
+				tkn.kind == Tkn::KIND_KEYWORD_JL ||
+				tkn.kind == Tkn::KIND_KEYWORD_JLE ||
+				tkn.kind == Tkn::KIND_KEYWORD_JG ||
+				tkn.kind == Tkn::KIND_KEYWORD_JGE ||
+				tkn.kind == Tkn::KIND_KEYWORD_JMP);
+	}
+
 	inline static Ins
 	parser_ins(Parser* self)
 	{
@@ -308,6 +333,21 @@ namespace as
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 		}
+		else if (is_pure_jump(op))
+		{
+			ins.op = parser_eat(self);
+			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
+		}
+		else if(is_cmp(op))
+		{
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			auto src = parser_look(self);
+			if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
+				ins.src = parser_eat(self);
+			else
+				src_err(self->src, src, mn::strf("expected an integer or a register"));
+		}
 		else if (op.kind == Tkn::KIND_KEYWORD_CALL)
 		{
 			ins.op = parser_eat(self);
@@ -316,11 +356,6 @@ namespace as
 		else if(op.kind == Tkn::KIND_KEYWORD_RET)
 		{
 			ins.op = parser_eat(self);
-		}
-		else if (op.kind == Tkn::KIND_KEYWORD_JMP)
-		{
-			ins.op = parser_eat(self);
-			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
 		}
 		// label
 		else if (op.kind == Tkn::KIND_ID)
@@ -402,6 +437,14 @@ namespace as
 				{
 					mn::print_to(out, "  {} {}\n", ins.op.str, ins.dst.str);
 				}
+				else if(is_pure_jump(ins.op))
+				{
+					mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
+				}
+				else if(is_cmp(ins.op))
+				{
+					mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
+				}
 				else if(ins.op.kind == Tkn::KIND_KEYWORD_CALL)
 				{
 					mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
@@ -409,10 +452,6 @@ namespace as
 				else if(ins.op.kind == Tkn::KIND_KEYWORD_RET)
 				{
 					mn::print_to(out, "  {}\n", ins.op.str);
-				}
-				else if(ins.op.kind == Tkn::KIND_KEYWORD_JMP)
-				{
-					mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
 				}
 				else if(ins.op.kind == Tkn::KIND_ID)
 				{
