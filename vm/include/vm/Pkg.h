@@ -33,6 +33,7 @@ namespace vm
 		mn::Map<mn::Str, mn::Buf<uint8_t>> constants;
 		mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
 		mn::Buf<Reloc> relocs;
+		mn::Buf<Reloc> constant_relocs;
 	};
 
 	VM_EXPORT Pkg
@@ -63,6 +64,9 @@ namespace vm
 	pkg_constant_add(Pkg& self, mn::Str constant_name, mn::Block bytes);
 
 	VM_EXPORT void
+	pkg_constant_reloc_add(Pkg& self, mn::Str source_name, uint64_t source_offset, mn::Str target_name);
+
+	VM_EXPORT void
 	pkg_save(const Pkg& self, const mn::Str& filename);
 
 	inline static void
@@ -80,13 +84,9 @@ namespace vm
 		return pkg_load(mn::str_lit(filename));
 	}
 
-	// prepares the bytecode for vm execution
-	struct Bytecode
-	{
-		mn::Buf<uint8_t> bytes;
-		uint64_t main_address;
-	};
+	// this will load the package bytecode into a cpu core
+	struct Core;
 
-	VM_EXPORT Bytecode
-	pkg_bytecode_main_generate(const Pkg& self, mn::Allocator allocator = mn::allocator_top());
+	VM_EXPORT void
+	pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes = 8ULL * 1024ULL * 1024ULL);
 }
