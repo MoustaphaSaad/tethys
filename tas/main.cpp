@@ -265,6 +265,12 @@ main(int argc, char** argv)
 		while (cpu.state == vm::Core::STATE_OK)
 			vm::core_ins_execute(cpu);
 
+		if(cpu.state == vm::Core::STATE_ERR)
+		{
+			mn::print("CPU errored\n");
+			return -1;
+		}
+
 		mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
 		mn::print("R1 = {}\n", cpu.r[vm::Reg_R1].i32);
 		return 0;

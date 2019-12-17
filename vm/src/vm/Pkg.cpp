@@ -310,5 +310,6 @@ namespace vm
 
 		auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));
 		core.r[Reg_IP].u64 = main_it->value;
+		core.r[Reg_SP].ptr = core.stack.ptr + stack_size_in_bytes;
 	}
 }
