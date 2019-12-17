@@ -120,7 +120,7 @@ namespace as
 	}
 
 	inline static Tkn
-	parser_const(Parser* self)
+	parser_imm(Parser* self)
 	{
 		auto op = parser_look(self);
 		if (op.kind == Tkn::KIND_INTEGER ||
@@ -299,7 +299,7 @@ namespace as
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
-			ins.src = parser_const(self);
+			ins.src = parser_imm(self);
 		}
 		else if (is_arithmetic(op))
 		{
@@ -372,6 +372,11 @@ namespace as
 			ins.op = parser_eat(self);
 			ins.dst = parser_eat_must(self, Tkn::KIND_ID);
 			ins.src = parser_eat_must(self, Tkn::KIND_STRING);
+		}
+		else if(op.kind == Tkn::KIND_KEYWORD_DEBUGSTR)
+		{
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
 		}
 
 		return ins;

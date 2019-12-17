@@ -147,7 +147,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD8));
 			emitter_reg_gen(self, ins.dst);
-			vm::push8(self.out, uint8_t(convert_to<int8_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (8-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push8(self.out, uint8_t(convert_to<int8_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -155,8 +162,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD8));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push8(self.out, convert_to<uint8_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (8-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push8(self.out, convert_to<uint8_t>(ins.src));
+			}
 			break;
 		}
 
@@ -164,8 +177,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD16));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push16(self.out, uint16_t(convert_to<int16_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (16-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push16(self.out, uint16_t(convert_to<int16_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -173,8 +192,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD16));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push16(self.out, convert_to<uint16_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (16-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push16(self.out, convert_to<uint16_t>(ins.src));
+			}
 			break;
 		}
 
@@ -182,8 +207,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD32));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push32(self.out, uint32_t(convert_to<int32_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (32-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push32(self.out, uint32_t(convert_to<int32_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -191,8 +222,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD32));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push32(self.out, convert_to<uint32_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (32-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push32(self.out, convert_to<uint32_t>(ins.src));
+			}
 			break;
 		}
 
@@ -200,8 +237,20 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD64));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push64(self.out, uint64_t(convert_to<int64_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				vm::pkg_constant_reloc_add(
+					pkg,
+					mn::str_from_c(proc.name.str),
+					self.out.count,
+					mn::str_from_c(ins.lbl.str)
+				);
+				vm::push64(self.out, 0);
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push64(self.out, uint64_t(convert_to<int64_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -209,8 +258,20 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD64));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push64(self.out, convert_to<uint64_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				vm::pkg_constant_reloc_add(
+					pkg,
+					mn::str_from_c(proc.name.str),
+					self.out.count,
+					mn::str_from_c(ins.lbl.str)
+				);
+				vm::push64(self.out, 0);
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push64(self.out, convert_to<uint64_t>(ins.src));
+			}
 			break;
 		}
 
@@ -1753,6 +1814,20 @@ namespace as
 
 		case Tkn::KIND_ID:
 			emitter_register_symbol(self, ins.op);
+			break;
+
+		case Tkn::KIND_KEYWORD_CONSTANT:
+			vm::pkg_constant_add(
+				pkg,
+				mn::str_from_c(ins.dst.str),
+				mn::Block{(void*)ins.src.rng.begin, size_t(ins.src.rng.end - ins.src.rng.begin)}
+			);
+			emitter_register_symbol(self, ins.dst);
+			break;
+
+		case Tkn::KIND_KEYWORD_DEBUGSTR:
+			vm::push8(self.out, uint8_t(vm::Op_DEBUGSTR));
+			emitter_reg_gen(self, ins.dst);
 			break;
 
 		default:
