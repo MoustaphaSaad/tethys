@@ -2645,3 +2645,551 @@ exit:
 	halt
 end
 ```
+
+### Day-15
+
+Today we'll start our quest to call C runtime library's printf function, first of all we'll add
+constants support which will only support strings for now, and a temporary instruction `debugstr` to debug the constant
+
+at the end of the day we'll be able to run this code
+```asm
+constant msg "Hello, World!\0"
+
+proc main
+	u64.load r1 msg
+	debugstr r1
+	halt
+end
+```
+
+which will print the `DEBUG: 'Hello, World!'` string
+
+now let's start by discussing the changes to the VM
+
+first we'll add the `debugstr` opcode
+```C++
+// TEMPORARY Op
+// prints a debug string
+// DEBUGSTR [register = address unsigned 64-bit]
+Op_DEBUGSTR,
+```
+
+then we'll implement it
+```C++
+case Op_DEBUGSTR:
+{
+	auto& str_address = load_reg(self);
+	mn::print("DEBUG: '{}'\n", (const char*)str_address.ptr);
+	break;
+}
+```
+
+and that's it for the VM for now, we'll move on to the assembler now
+
+first let's add a couple of tokens
+```C++
+TOKEN(STRING, "<STRING>"), \
+...
+TOKEN(KEYWORD_CONSTANT, "CONSTANT"), \
+TOKEN(KEYWORD_DEBUGSTR, "DEBUGSTR"), \
+```
+
+then we'll need to scan the string token
+```C++
+inline static void
+scanner_string(Scanner* self, Tkn* tkn)
+{
+	auto begin_it = self->it;
+	auto end_it = self->it;
+
+	auto prev = self->c;
+	// eat all runes even those escaped by \ like \"
+	while(self->c != '"' || prev == '\\')
+	{
+		if (scanner_eat(self) == false)
+		{
+			src_err(self->src, self->pos, mn::strf("unterminated string"));
+			break;
+		}
+		prev = self->c;
+	}
+
+	end_it = self->it;
+	scanner_eat(self); // for the "
+	tkn->str = mn::str_intern(self->src->str_table, begin_it, end_it);
+	tkn->rng.begin = begin_it;
+	tkn->rng.end = end_it;
+}
+
+inline static Tkn
+scanner_tkn(Scanner* self)
+{
+	...
+	case '"':
+	tkn.kind = Tkn::KIND_STRING;
+	scanner_string(self, &tkn);
+	no_intern = true;
+	no_rng = true;
+	break;
+	...
+}
+```
+
+then we'll move on to parsing but first remember that constant is not really an instruction it's a declaration on the top level so we'll need to change our parse_tree to match that
+```C++
+struct Constant
+{
+	Tkn name;
+	Tkn value;
+};
+
+struct Decl
+{
+	enum KIND
+	{
+		KIND_NONE,
+		KIND_PROC,
+		KIND_CONSTANT
+	};
+
+	KIND kind;
+	union
+	{
+		Proc proc;
+		Constant constant;
+	};
+};
+
+Decl*
+decl_proc_new(Proc proc)
+{
+	auto self = mn::alloc_zerod<Decl>();
+	self->kind = Decl::KIND_PROC;
+	self->proc = proc;
+	return self;
+}
+
+Decl*
+decl_constant_new(Constant constant)
+{
+	auto self = mn::alloc_zerod<Decl>();
+	self->kind = Decl::KIND_CONSTANT;
+	self->constant = constant;
+	return self;
+}
+
+void
+decl_free(Decl* self)
+{
+	if (self->kind == Decl::KIND_PROC)
+		proc_free(self->proc);
+	mn::free(self);
+}
+```
+
+then we'll go on and parse that
+```C++
+inline static Constant
+parser_constant(Parser* self)
+{
+	parser_eat_must(self, Tkn::KIND_KEYWORD_CONSTANT);
+	Constant constant{};
+	constant.name = parser_eat_must(self, Tkn::KIND_ID);
+	constant.value = parser_eat_must(self, Tkn::KIND_STRING);
+	return constant;
+}
+
+bool
+parse(Src* src)
+{
+	auto parser = parser_new(src);
+	mn_defer(parser_free(parser));
+
+	while(parser.ix < parser.tkns.count)
+	{
+		auto tkn = parser_look(&parser);
+		if (tkn.kind == Tkn::KIND_KEYWORD_PROC)
+		{
+			auto proc = parser_proc(&parser);
+			if (src_has_err(src))
+			{
+				proc_free(proc);
+				break;
+			}
+			mn::buf_push(src->decls, decl_proc_new(proc));
+		}
+		else if(tkn.kind == Tkn::KIND_KEYWORD_CONSTANT)
+		{
+			auto constant = parser_constant(&parser);
+			if (src_has_err(src))
+				break;
+			mn::buf_push(src->decls, decl_constant_new(constant));
+		}
+	}
+
+	return src_has_err(src) == false;
+}
+```
+
+also we'll need to parse `debugstr` and `u64/i64` variant of the `load` instruction to accept and id which refers to a constant
+```C++
+if (is_load(op))
+{
+	ins.op = parser_eat(self);
+	ins.dst = parser_reg(self);
+	ins.src = parser_imm(self, op.kind == Tkn::KIND_KEYWORD_U64_LOAD || op.kind == Tkn::KIND_KEYWORD_I64_LOAD);
+}
+...
+else if(op.kind == Tkn::KIND_KEYWORD_DEBUGSTR)
+{
+	ins.op = parser_eat(self);
+	ins.dst = parser_reg(self);
+}
+```
+
+with `parser_const` name changing to `parser_imm` and implementation is changed to
+```C++
+inline static Tkn
+parser_imm(Parser* self, bool constant_allowed)
+{
+	auto op = parser_look(self);
+	if (op.kind == Tkn::KIND_INTEGER ||
+		op.kind == Tkn::KIND_FLOAT)
+	{
+		return parser_eat(self);
+	}
+
+	if (constant_allowed && op.kind == Tkn::KIND_ID)
+		return parser_eat(self);
+
+	src_err(self->src, op, mn::strf("expected a constant but found '{}'", op.str));
+	return Tkn{};
+}
+```
+
+now that we can parse the constants we'll need to add them to code gen
+```C++
+for(auto decl: src->decls)
+{
+	switch(decl->kind)
+	{
+	case Decl::KIND_PROC:
+	{
+		auto emitter = emitter_new(src, &globals);
+		mn_defer(emitter_free(emitter));
+
+		auto code = emitter_proc_gen(emitter, decl->proc, pkg);
+		vm::pkg_proc_add(pkg, decl->proc.name.str, code);
+		break;
+	}
+
+	case Decl::KIND_CONSTANT:
+	{
+		mn::str_clear(tmp_str);
+		// replace escaped characters with their binary equivalent
+		_escape_string(tmp_str, decl->constant.value.rng.begin, decl->constant.value.rng.end);
+
+		// add this constant bytes to the package format
+		vm::pkg_constant_add(
+			pkg,
+			mn::str_from_c(decl->constant.name.str),
+			block_from(tmp_str)
+		);
+		break;
+	}
+
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+}
+```
+
+then we'll need to add the implementation for `debugstr` and i64/u64 load instruction
+```C++
+case Tkn::KIND_KEYWORD_U32_LOAD:
+{
+	vm::push8(self.out, uint8_t(vm::Op_LOAD32));
+	emitter_reg_gen(self, ins.dst);
+	if(ins.src.kind == Tkn::KIND_ID)
+	{
+		// since out pointer size is 64 bit then show error message for all loads except 64-bit loads
+		src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (32-bit) wide value"));
+	}
+	else if (ins.src.kind == Tkn::KIND_INTEGER)
+	{
+		vm::push32(self.out, convert_to<uint32_t>(ins.src));
+	}
+	break;
+}
+
+case Tkn::KIND_KEYWORD_I64_LOAD:
+{
+	vm::push8(self.out, uint8_t(vm::Op_LOAD64));
+	emitter_reg_gen(self, ins.dst);
+	if(ins.src.kind == Tkn::KIND_ID)
+	{
+		// inform the package file format about the relocation
+		vm::pkg_constant_reloc_add(
+			pkg,
+			mn::str_from_c(proc.name.str),
+			self.out.count,
+			mn::str_from_c(ins.src.str)
+		);
+		// as usual put a 0 placeholder to be patched by the loader later
+		vm::push64(self.out, 0);
+	}
+	else if (ins.src.kind == Tkn::KIND_INTEGER)
+	{
+		vm::push64(self.out, uint64_t(convert_to<int64_t>(ins.src)));
+	}
+	break;
+}
+...
+case Tkn::KIND_KEYWORD_DEBUGSTR:
+	vm::push8(self.out, uint8_t(vm::Op_DEBUGSTR));
+	emitter_reg_gen(self, ins.dst);
+	break;
+```
+
+now that we have the assembler in place we'll need to go back the package file format and loader to add constants support
+
+first we'll need to add a table for constants and a Buf for constant relocations
+```C++
+struct Pkg
+{
+	mn::Map<mn::Str, mn::Buf<uint8_t>> constants;
+	mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
+	mn::Buf<Reloc> relocs;
+	mn::Buf<Reloc> constant_relocs;
+};
+```
+
+then we'll add them to the save function
+```C++
+// write constants count
+len = uint32_t(self.constants.count);
+mn::stream_write(f, mn::block_from(len));
+
+// write each constant
+for(auto it = mn::map_begin(self.constants);
+	it != mn::map_end(self.constants);
+	it = mn::map_next(self.constants, it))
+{
+	write_string(f, it->key);
+	write_bytes(f, it->value);
+}
+
+// write relocs count
+len = uint32_t(self.constant_relocs.count);
+mn::stream_write(f, mn::block_from(len));
+
+// write each reloc
+for(const auto& reloc: self.constant_relocs)
+{
+	write_string(f, reloc.source_name);
+	write_string(f, reloc.target_name);
+	mn::stream_write(f, mn::block_from(reloc.source_offset));
+}
+```
+
+and the load function
+```C++
+// read constants count
+len = 0;
+mn::stream_read(f, mn::block_from(len));
+mn::map_reserve(self.constants, len);
+
+// read each constant
+for(size_t i = 0; i < len; ++i)
+{
+	auto name = read_string(f);
+	auto bytes = read_bytes(f);
+	mn::map_insert(self.constants, name, bytes);
+}
+
+// read relocs count
+len = 0;
+mn::stream_read(f, mn::block_from(len));
+mn::buf_reserve(self.constant_relocs, len);
+
+// read each reloc
+for(size_t i = 0; i < len; ++i)
+{
+	Reloc reloc{};
+	reloc.source_name = read_string(f);
+	reloc.target_name = read_string(f);
+	mn::stream_read(f, mn::block_from(reloc.source_offset));
+	mn::buf_push(self.constant_relocs, reloc);
+}
+```
+
+then we'll need to edit `pkg_bytecode_main_generate` and change it to `pkg_core_load` which will take in the core struct and prepare it for execution directly
+
+```C++
+void
+pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes)
+{
+	auto loaded_procs_table = mn::map_new<mn::Str, uint64_t>();
+	mn_defer(mn::map_free(loaded_procs_table));
+
+	// append each proc bytecode to the result bytecode array
+	for(auto it = mn::map_begin(self.procs);
+		it != mn::map_end(self.procs);
+		it = mn::map_next(self.procs, it))
+	{
+		// add the proc name and offset in the loaded_procs_table
+		mn::map_insert(loaded_procs_table, it->key, uint64_t(core.bytecode.count));
+		mn::buf_concat(core.bytecode, it->value);
+	}
+
+	// after loading procs we'll need to perform the relocs
+	for(const auto& reloc: self.relocs)
+	{
+		auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
+		auto target_it = mn::map_lookup(loaded_procs_table, reloc.target_name);
+		assert(source_it && target_it);
+		write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+	}
+
+	// make a similar table for constants
+	auto loaded_constants_table = mn::map_new<mn::Str, uint64_t>();
+	mn_defer(mn::map_free(loaded_constants_table));
+
+	// just like the code we'll concat each constant in top of stack memory
+	for(auto it = mn::map_begin(self.constants);
+		it != mn::map_end(self.constants);
+		it = mn::map_next(self.constants, it))
+	{
+		mn::map_insert(loaded_constants_table, it->key, uint64_t(core.stack.count));
+		mn::buf_concat(core.stack, it->value);
+	}
+
+	// then add the requested stack memory to the stack (default = 8MB)
+	mn::buf_resize(core.stack, stack_size_in_bytes);
+
+	// after loading constants we'll need to perform the relocs for constants
+	for(const auto& reloc: self.constant_relocs)
+	{
+		auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
+		auto target_it = mn::map_lookup(loaded_constants_table, reloc.target_name);
+		assert(source_it && target_it);
+		write64(core.bytecode.ptr + source_it->value + reloc.source_offset, uint64_t(core.stack.ptr + target_it->value));
+	}
+
+	// set the IP register to point to start of main
+	auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));
+	core.r[Reg_IP].u64 = main_it->value;
+	// set the SP register to point to the bottom of the stack
+	core.r[Reg_SP].ptr = core.stack.ptr + stack_size_in_bytes;
+}
+```
+
+and we're done. now we can debug a string constant using our VM
+
+I did a couple of fixes along the day like fixing the `write` opcode which allocated the memory in the instruction itself unlike x64 assembly where you allocate memory before writing
+
+old behavior
+```asm
+i32.write sp r0
+i32.sub sp 4
+```
+
+correct behavior
+```asm
+i32.sub sp 4
+i32.write sp r0
+```
+
+let's fix that by changing the write instruction implementation
+```C++
+case Op_WRITE32:
+{
+	auto& dst = load_reg(self);
+	auto& src = load_reg(self);
+	if(valid_next_bytes(self, dst.ptr, sizeof(uint32_t)) == false)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	*(uint32_t*)dst.ptr = src.u32;
+	break;
+}
+...
+case Op_READ32:
+{
+	auto& dst = load_reg(self);
+	auto& src = load_reg(self);
+	if(valid_next_bytes(self, src.ptr, sizeof(uint32_t)) == false)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	dst.u32 = *(uint32_t*)src.ptr;
+	break;
+}
+```
+
+also we had a problem where global symbols could collide with local symbols
+for example you could define a constant named `msg` and a proc called `msg` this should of course generate an error message so let's do in the generation step of our assembler
+
+we'll put each global symbol into a table then we'll check it every time we define a local one
+```C++
+// load all global symbols into globals map and try to resolve symbol redefinition erros
+auto globals = mn::map_new<const char*, Tkn>();
+mn_defer(mn::map_free(globals));
+
+for(auto decl: src->decls)
+{
+	switch(decl->kind)
+	{
+	case Decl::KIND_PROC:
+	{
+		if(auto it = mn::map_lookup(globals, decl->proc.name.str))
+			src_err(src, decl->proc.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+		else
+			mn::map_insert(globals, decl->proc.name.str, decl->proc.name);
+		break;
+	}
+
+	case Decl::KIND_CONSTANT:
+	{
+		if(auto it = mn::map_lookup(globals, decl->constant.name.str))
+			src_err(src, decl->constant.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+		else
+			mn::map_insert(globals, decl->constant.name.str, decl->constant.name);
+		break;
+	}
+
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+}
+```
+
+then we'll need to check it each time we add a local symbol
+```C++
+inline static void
+emitter_register_symbol(Emitter& self, const Tkn& label)
+{
+	// check global symbols
+	assert(self.globals != nullptr);
+
+	if(auto it = mn::map_lookup(*self.globals, label.str))
+	{
+		src_err(self.src, label, mn::strf("global symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+	}
+
+	if (mn::map_lookup(self.symbols, label.str) == nullptr)
+	{
+		mn::map_insert(self.symbols, label.str, self.out.count);
+	}
+	else
+	{
+		src_err(self.src, label, mn::strf("'{}' local symbol redefinition", label.str));
+	}
+}
+```
+
+and that's it for today
