@@ -29,7 +29,8 @@ namespace vm
 		CMP cmp;
 		Reg_Val r[Reg_COUNT];
 
-		mn::Buf<uint8_t> stack_memory;
+		mn::Buf<uint8_t> bytecode;
+		mn::Buf<uint8_t> stack;
 	};
 
 	VM_EXPORT Core
@@ -45,5 +46,5 @@ namespace vm
 	}
 
 	VM_EXPORT void
-	core_ins_execute(Core& self, const mn::Buf<uint8_t>& code);
+	core_ins_execute(Core& self);
 }

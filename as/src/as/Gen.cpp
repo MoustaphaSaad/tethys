@@ -39,15 +39,18 @@ namespace as
 		mn::Buf<uint8_t> out;
 		mn::Buf<Fixup_Request> fixups;
 		mn::Map<const char*, size_t> symbols;
+		// pointer to the globals symbols to check local symbols against
+		mn::Map<const char*, Tkn> *globals;
 	};
 
 	inline static Emitter
-	emitter_new(Src* src)
+	emitter_new(Src* src, mn::Map<const char*, Tkn> *globals)
 	{
 		Emitter self{};
 		self.src = src;
 		self.fixups = mn::buf_new<Fixup_Request>();
 		self.symbols = mn::map_new<const char*, uint64_t>();
+		self.globals = globals;
 		return self;
 	}
 
@@ -74,13 +77,21 @@ namespace as
 	inline static void
 	emitter_register_symbol(Emitter& self, const Tkn& label)
 	{
+		// check global symbols
+		assert(self.globals != nullptr);
+
+		if(auto it = mn::map_lookup(*self.globals, label.str))
+		{
+			src_err(self.src, label, mn::strf("global symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+		}
+
 		if (mn::map_lookup(self.symbols, label.str) == nullptr)
 		{
 			mn::map_insert(self.symbols, label.str, self.out.count);
 		}
 		else
 		{
-			src_err(self.src, label, mn::strf("'{}' symbol redefinition", label.str));
+			src_err(self.src, label, mn::strf("'{}' local symbol redefinition", label.str));
 		}
 	}
 
@@ -132,7 +143,7 @@ namespace as
 		// convert the string value to int8_t
 		T c = 0;
 		// reads returns the number of the parsed items
-		size_t res = mn::reads(tkn.str, c);
+		[[maybe_unused]] size_t res = mn::reads(tkn.str, c);
 		// assert that we parsed the only item we have
 		assert(res == 1);
 		return c;
@@ -147,7 +158,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD8));
 			emitter_reg_gen(self, ins.dst);
-			vm::push8(self.out, uint8_t(convert_to<int8_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (8-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push8(self.out, uint8_t(convert_to<int8_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -155,8 +173,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD8));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push8(self.out, convert_to<uint8_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (8-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push8(self.out, convert_to<uint8_t>(ins.src));
+			}
 			break;
 		}
 
@@ -164,8 +188,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD16));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push16(self.out, uint16_t(convert_to<int16_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (16-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push16(self.out, uint16_t(convert_to<int16_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -173,8 +203,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD16));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push16(self.out, convert_to<uint16_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (16-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push16(self.out, convert_to<uint16_t>(ins.src));
+			}
 			break;
 		}
 
@@ -182,8 +218,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD32));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push32(self.out, uint32_t(convert_to<int32_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (32-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push32(self.out, uint32_t(convert_to<int32_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -191,8 +233,14 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD32));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push32(self.out, convert_to<uint32_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (32-bit) wide value"));
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push32(self.out, convert_to<uint32_t>(ins.src));
+			}
 			break;
 		}
 
@@ -200,8 +248,20 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD64));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push64(self.out, uint64_t(convert_to<int64_t>(ins.src)));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				vm::pkg_constant_reloc_add(
+					pkg,
+					mn::str_from_c(proc.name.str),
+					self.out.count,
+					mn::str_from_c(ins.src.str)
+				);
+				vm::push64(self.out, 0);
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push64(self.out, uint64_t(convert_to<int64_t>(ins.src)));
+			}
 			break;
 		}
 
@@ -209,8 +269,20 @@ namespace as
 		{
 			vm::push8(self.out, uint8_t(vm::Op_LOAD64));
 			emitter_reg_gen(self, ins.dst);
-
-			vm::push64(self.out, convert_to<uint64_t>(ins.src));
+			if(ins.src.kind == Tkn::KIND_ID)
+			{
+				vm::pkg_constant_reloc_add(
+					pkg,
+					mn::str_from_c(proc.name.str),
+					self.out.count,
+					mn::str_from_c(ins.src.str)
+				);
+				vm::push64(self.out, 0);
+			}
+			else if (ins.src.kind == Tkn::KIND_INTEGER)
+			{
+				vm::push64(self.out, convert_to<uint64_t>(ins.src));
+			}
 			break;
 		}
 
@@ -1755,6 +1827,11 @@ namespace as
 			emitter_register_symbol(self, ins.op);
 			break;
 
+		case Tkn::KIND_KEYWORD_DEBUGSTR:
+			vm::push8(self.out, uint8_t(vm::Op_DEBUGSTR));
+			emitter_reg_gen(self, ins.dst);
+			break;
+
 		default:
 			assert(false && "unreachable");
 			vm::push8(self.out, uint8_t(vm::Op_IGL));
@@ -1790,18 +1867,159 @@ namespace as
 		return res;
 	}
 
+	inline static void
+	_escape_string(mn::Str &str, const char* begin, const char* end)
+	{
+		assert(end >= begin);
+
+		mn::str_reserve(str, end - begin);
+
+		for(auto it = begin; it < end; ++it)
+		{
+			char current = *it;
+			char next = 0;
+			if (it + 1 < end)
+				next = *(it + 1);
+
+			if(current == '\\' && next == 'a')
+			{
+				mn::buf_push(str, '\a');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'b')
+			{
+				mn::buf_push(str, '\b');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'f')
+			{
+				mn::buf_push(str, '\f');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'n')
+			{
+				mn::buf_push(str, '\n');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'r')
+			{
+				mn::buf_push(str, '\r');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 't')
+			{
+				mn::buf_push(str, '\t');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'v')
+			{
+				mn::buf_push(str, '\v');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == '0')
+			{
+				mn::buf_push(str, '\0');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == '\\')
+			{
+				mn::buf_push(str, '\\');
+				++it;
+				continue;
+			}
+			else
+			{
+				mn::buf_push(str, current);
+				continue;
+			}
+		}
+
+		mn::str_null_terminate(str);
+	}
+
 	// API
 	vm::Pkg
 	src_gen(Src* src)
 	{
-		auto pkg = vm::pkg_new();
-		for(const auto& proc: src->procs)
-		{
-			auto emitter = emitter_new(src);
-			mn_defer(emitter_free(emitter));
+		// load all global symbols into globals map and try to resolve symbol redefinition erros
+		auto globals = mn::map_new<const char*, Tkn>();
+		mn_defer(mn::map_free(globals));
 
-			auto code = emitter_proc_gen(emitter, proc, pkg);
-			vm::pkg_proc_add(pkg, proc.name.str, code);
+		for(auto decl: src->decls)
+		{
+			switch(decl->kind)
+			{
+			case Decl::KIND_PROC:
+			{
+				if(auto it = mn::map_lookup(globals, decl->proc.name.str))
+					src_err(src, decl->proc.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+				else
+					mn::map_insert(globals, decl->proc.name.str, decl->proc.name);
+				break;
+			}
+
+			case Decl::KIND_CONSTANT:
+			{
+				if(auto it = mn::map_lookup(globals, decl->constant.name.str))
+					src_err(src, decl->constant.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+				else
+					mn::map_insert(globals, decl->constant.name.str, decl->constant.name);
+				break;
+			}
+
+			default:
+				assert(false && "unreachable");
+				break;
+			}
+		}
+
+		auto pkg = vm::pkg_new();
+
+		if (src_has_err(src))
+			return pkg;
+
+		auto tmp_str = mn::str_new();
+		mn_defer(mn::str_free(tmp_str));
+
+		for(auto decl: src->decls)
+		{
+			switch(decl->kind)
+			{
+			case Decl::KIND_PROC:
+			{
+				auto emitter = emitter_new(src, &globals);
+				mn_defer(emitter_free(emitter));
+
+				auto code = emitter_proc_gen(emitter, decl->proc, pkg);
+				vm::pkg_proc_add(pkg, decl->proc.name.str, code);
+				break;
+			}
+
+			case Decl::KIND_CONSTANT:
+			{
+				mn::str_clear(tmp_str);
+				_escape_string(tmp_str, decl->constant.value.rng.begin, decl->constant.value.rng.end);
+
+				vm::pkg_constant_add(
+					pkg,
+					mn::str_from_c(decl->constant.name.str),
+					block_from(tmp_str)
+				);
+				break;
+			}
+
+			default:
+				assert(false && "unreachable");
+				break;
+			}
 		}
 		return pkg;
 	}

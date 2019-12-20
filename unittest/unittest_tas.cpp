@@ -78,7 +78,7 @@ TEST_CASE("parse tests")
 		if (as::parse(unit) == false)
 			answer = as::src_errs_dump(unit, mn::memory::tmp());
 		else
-			answer = as::proc_dump(unit, mn::memory::tmp());
+			answer = as::decl_dump(unit, mn::memory::tmp());
 
 		if(expected != answer)
 		{

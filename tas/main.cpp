@@ -192,7 +192,7 @@ main(int argc, char** argv)
 			return -1;
 		}
 
-		mn::print("{}", as::proc_dump(src, mn::memory::tmp()));
+		mn::print("{}", as::decl_dump(src, mn::memory::tmp()));
 		return 0;
 	}
 	else if(args.command == "build")
@@ -257,17 +257,19 @@ main(int argc, char** argv)
 		auto pkg = vm::pkg_load(args.targets[0].ptr);
 		mn_defer(vm::pkg_free(pkg));
 
-		auto [code, main_address] = vm::pkg_bytecode_main_generate(pkg);
-		mn_defer(mn::buf_free(code));
-
 		auto cpu = vm::core_new();
 		mn_defer(vm::core_free(cpu));
 
-		// load the main address into the cpu core
-		cpu.r[vm::Reg_IP].u64 = main_address;
+		vm::pkg_core_load(pkg, cpu);
 
 		while (cpu.state == vm::Core::STATE_OK)
-			vm::core_ins_execute(cpu, code);
+			vm::core_ins_execute(cpu);
+
+		if(cpu.state == vm::Core::STATE_ERR)
+		{
+			mn::print("CPU errored\n");
+			return -1;
+		}
 
 		mn::print("R0 = {}\n", cpu.r[vm::Reg_R0].i32);
 		mn::print("R1 = {}\n", cpu.r[vm::Reg_R1].i32);

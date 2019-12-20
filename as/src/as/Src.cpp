@@ -17,7 +17,7 @@ namespace as
 		self->str_table = mn::str_intern_new();
 		self->errs = mn::buf_new<Err>();
 		self->tkns = mn::buf_new<Tkn>();
-		self->procs = mn::buf_new<Proc>();
+		self->decls = mn::buf_new<Decl*>();
 		return self;
 	}
 
@@ -43,7 +43,7 @@ namespace as
 		mn::str_intern_free(self->str_table);
 		destruct(self->errs);
 		mn::buf_free(self->tkns);
-		destruct(self->procs);
+		destruct(self->decls);
 		mn::free(self);
 	}
 

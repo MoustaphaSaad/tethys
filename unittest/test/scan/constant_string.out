@@ -1,0 +1,3 @@
+line: 1, col: 0, kind: "CONSTANT" str: "constant"
+line: 1, col: 9, kind: "<ID>" str: "msg"
+line: 1, col: 13, kind: "<STRING>" str: "Hello, World!\n\0"

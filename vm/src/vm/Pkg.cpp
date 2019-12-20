@@ -1,4 +1,5 @@
 #include "vm/Pkg.h"
+#include "vm/Core.h"
 
 #include <mn/File.h>
 #include <mn/Path.h>
@@ -81,16 +82,20 @@ namespace vm
 	pkg_new()
 	{
 		Pkg self{};
+		self.constants = mn::map_new<mn::Str, mn::Buf<uint8_t>>();
 		self.procs = mn::map_new<mn::Str, mn::Buf<uint8_t>>();
 		self.relocs = mn::buf_new<Reloc>();
+		self.constant_relocs = mn::buf_new<Reloc>();
 		return self;
 	}
 
 	void
 	pkg_free(Pkg& self)
 	{
+		destruct(self.constants);
 		destruct(self.procs);
 		destruct(self.relocs);
+		destruct(self.constant_relocs);
 	}
 
 	bool
@@ -107,6 +112,26 @@ namespace vm
 	pkg_reloc_add(Pkg& self, mn::Str source_name, uint64_t source_offset, mn::Str target_name)
 	{
 		mn::buf_push(self.relocs, Reloc{ source_name, target_name, source_offset });
+	}
+
+	bool
+	pkg_constant_add(Pkg& self, mn::Str constant_name, mn::Block bytes)
+	{
+		auto it = mn::map_lookup(self.constants, constant_name);
+		assert(it == nullptr);
+		if (it != nullptr)
+			return false;
+
+		auto buf = mn::buf_with_count<uint8_t>(bytes.size);
+		::memcpy(buf.ptr, bytes.ptr, bytes.size);
+		mn::map_insert(self.constants, constant_name, buf);
+		return true;
+	}
+
+	void
+	pkg_constant_reloc_add(Pkg& self, mn::Str source_name, uint64_t source_offset, mn::Str target_name)
+	{
+		mn::buf_push(self.constant_relocs, Reloc{ source_name, target_name, source_offset });
 	}
 
 	void
@@ -135,6 +160,31 @@ namespace vm
 
 		// write each reloc
 		for(const auto& reloc: self.relocs)
+		{
+			write_string(f, reloc.source_name);
+			write_string(f, reloc.target_name);
+			mn::stream_write(f, mn::block_from(reloc.source_offset));
+		}
+
+		// write constants count
+		len = uint32_t(self.constants.count);
+		mn::stream_write(f, mn::block_from(len));
+
+		// write each constant
+		for(auto it = mn::map_begin(self.constants);
+			it != mn::map_end(self.constants);
+			it = mn::map_next(self.constants, it))
+		{
+			write_string(f, it->key);
+			write_bytes(f, it->value);
+		}
+
+		// write relocs count
+		len = uint32_t(self.constant_relocs.count);
+		mn::stream_write(f, mn::block_from(len));
+
+		// write each reloc
+		for(const auto& reloc: self.constant_relocs)
 		{
 			write_string(f, reloc.source_name);
 			write_string(f, reloc.target_name);
@@ -179,14 +229,40 @@ namespace vm
 			mn::buf_push(self.relocs, reloc);
 		}
 
+		// read constants count
+		len = 0;
+		mn::stream_read(f, mn::block_from(len));
+		mn::map_reserve(self.constants, len);
+
+		// read each constant
+		for(size_t i = 0; i < len; ++i)
+		{
+			auto name = read_string(f);
+			auto bytes = read_bytes(f);
+			mn::map_insert(self.constants, name, bytes);
+		}
+
+		// read relocs count
+		len = 0;
+		mn::stream_read(f, mn::block_from(len));
+		mn::buf_reserve(self.constant_relocs, len);
+
+		// read each reloc
+		for(size_t i = 0; i < len; ++i)
+		{
+			Reloc reloc{};
+			reloc.source_name = read_string(f);
+			reloc.target_name = read_string(f);
+			mn::stream_read(f, mn::block_from(reloc.source_offset));
+			mn::buf_push(self.constant_relocs, reloc);
+		}
+
 		return self;
 	}
 
-	Bytecode
-	pkg_bytecode_main_generate(const Pkg& self, mn::Allocator allocator)
+	void
+	pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes)
 	{
-		auto res = mn::buf_with_allocator<uint8_t>(allocator);
-
 		auto loaded_procs_table = mn::map_new<mn::Str, uint64_t>();
 		mn_defer(mn::map_free(loaded_procs_table));
 
@@ -196,8 +272,8 @@ namespace vm
 			it = mn::map_next(self.procs, it))
 		{
 			// add the proc name and offset in the loaded_procs_table
-			mn::map_insert(loaded_procs_table, it->key, uint64_t(res.count));
-			mn::buf_concat(res, it->value);
+			mn::map_insert(loaded_procs_table, it->key, uint64_t(core.bytecode.count));
+			mn::buf_concat(core.bytecode, it->value);
 		}
 
 		// after loading procs we'll need to perform the relocs
@@ -206,11 +282,34 @@ namespace vm
 			auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
 			auto target_it = mn::map_lookup(loaded_procs_table, reloc.target_name);
 			assert(source_it && target_it);
-			write64(res.ptr + source_it->value + reloc.source_offset, target_it->value);
+			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+		}
+
+		auto loaded_constants_table = mn::map_new<mn::Str, uint64_t>();
+		mn_defer(mn::map_free(loaded_constants_table));
+
+		// append each constant
+		for(auto it = mn::map_begin(self.constants);
+			it != mn::map_end(self.constants);
+			it = mn::map_next(self.constants, it))
+		{
+			mn::map_insert(loaded_constants_table, it->key, uint64_t(core.stack.count));
+			mn::buf_concat(core.stack, it->value);
+		}
+
+		mn::buf_resize(core.stack, stack_size_in_bytes);
+
+		// after loading constants we'll need to perform the relocs
+		for(const auto& reloc: self.constant_relocs)
+		{
+			auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
+			auto target_it = mn::map_lookup(loaded_constants_table, reloc.target_name);
+			assert(source_it && target_it);
+			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, uint64_t(core.stack.ptr + target_it->value));
 		}
 
 		auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));
-
-		return Bytecode{res, main_it->value};
+		core.r[Reg_IP].u64 = main_it->value;
+		core.r[Reg_SP].ptr = core.stack.ptr + stack_size_in_bytes;
 	}
 }

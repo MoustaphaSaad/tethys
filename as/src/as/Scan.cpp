@@ -255,6 +255,31 @@ namespace as
 		return mn::str_intern(self->src->str_table, begin_it, end_it);
 	}
 
+	inline static void
+	scanner_string(Scanner* self, Tkn* tkn)
+	{
+		auto begin_it = self->it;
+		auto end_it = self->it;
+
+		auto prev = self->c;
+		// eat all runes even those escaped by \ like \"
+		while(self->c != '"' || prev == '\\')
+		{
+			if (scanner_eat(self) == false)
+			{
+				src_err(self->src, self->pos, mn::strf("unterminated string"));
+				break;
+			}
+			prev = self->c;
+		}
+
+		end_it = self->it;
+		scanner_eat(self); // for the "
+		tkn->str = mn::str_intern(self->src->str_table, begin_it, end_it);
+		tkn->rng.begin = begin_it;
+		tkn->rng.end = end_it;
+	}
+
 	inline static Tkn
 	scanner_tkn(Scanner* self)
 	{
@@ -266,6 +291,7 @@ namespace as
 		Tkn tkn{};
 		tkn.pos = self->pos;
 		tkn.rng.begin = self->it;
+		bool no_rng = false;
 		if(is_letter(self->c))
 		{
 			tkn.kind = Tkn::KIND_ID;
@@ -312,6 +338,12 @@ namespace as
 				tkn.str = scanner_comment(self);
 				no_intern = true;
 				break;
+			case '"':
+				tkn.kind = Tkn::KIND_STRING;
+				scanner_string(self, &tkn);
+				no_intern = true;
+				no_rng = true;
+				break;
 			default:
 				src_err(self->src, begin_pos, mn::strf("illegal character {}", self->c));
 				break;
@@ -320,7 +352,8 @@ namespace as
 			if (no_intern == false)
 				tkn.str = mn::str_intern(self->src->str_table, tkn.rng.begin, self->it);
 		}
-		tkn.rng.end = self->it;
+		if(no_rng == false)
+			tkn.rng.end = self->it;
 		return tkn;
 	}
 

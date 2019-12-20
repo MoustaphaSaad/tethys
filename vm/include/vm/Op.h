@@ -171,6 +171,10 @@ namespace vm
 		// RET
 		Op_RET,
 
+		// TEMPORARY Op
+		// prints a debug string
+		// DEBUGSTR [register = address unsigned 64-bit]
+		Op_DEBUGSTR,
 
 		Op_HALT,
 	};
