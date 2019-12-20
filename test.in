@@ -6,6 +6,9 @@ proc main
 
 	call add
 
+	u64.load r1 msg
+	debugstr r1
+
 	halt
 end
 

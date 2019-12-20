@@ -20,6 +20,7 @@ set(SOURCE_FILES
 	src/as/Src.cpp
 	src/as/Parse.cpp
 	src/as/Gen.cpp
+	src/as/Parse_Tree.cpp
 )
 
 

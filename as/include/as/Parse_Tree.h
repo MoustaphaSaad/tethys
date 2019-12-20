@@ -39,4 +39,42 @@ namespace as
 	{
 		proc_free(self);
 	}
+
+	struct Constant
+	{
+		Tkn name;
+		Tkn value;
+	};
+
+	struct Decl
+	{
+		enum KIND
+		{
+			KIND_NONE,
+			KIND_PROC,
+			KIND_CONSTANT
+		};
+
+		KIND kind;
+		union
+		{
+			Proc proc;
+			Constant constant;
+		};
+	};
+
+	Decl*
+	decl_proc_new(Proc proc);
+
+	Decl*
+	decl_constant_new(Constant constant);
+
+	void
+	decl_free(Decl* self);
+
+	inline static void
+	destruct(Decl* self)
+	{
+		decl_free(self);
+	}
 }

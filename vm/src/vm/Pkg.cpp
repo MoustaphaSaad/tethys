@@ -180,7 +180,7 @@ namespace vm
 		}
 
 		// write relocs count
-		len = uint32_t(self.constants.count);
+		len = uint32_t(self.constant_relocs.count);
 		mn::stream_write(f, mn::block_from(len));
 
 		// write each reloc
@@ -291,7 +291,7 @@ namespace vm
 		// append each constant
 		for(auto it = mn::map_begin(self.constants);
 			it != mn::map_end(self.constants);
-			it = mn::map_next(self.procs, it))
+			it = mn::map_next(self.constants, it))
 		{
 			mn::map_insert(loaded_constants_table, it->key, uint64_t(core.stack.count));
 			mn::buf_concat(core.stack, it->value);
@@ -302,10 +302,10 @@ namespace vm
 		// after loading constants we'll need to perform the relocs
 		for(const auto& reloc: self.constant_relocs)
 		{
-			auto source_it = mn::map_lookup(loaded_constants_table, reloc.source_name);
+			auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
 			auto target_it = mn::map_lookup(loaded_constants_table, reloc.target_name);
 			assert(source_it && target_it);
-			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, uint64_t(core.stack.ptr + target_it->value));
 		}
 
 		auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));

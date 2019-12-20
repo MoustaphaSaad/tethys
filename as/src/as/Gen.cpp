@@ -39,15 +39,18 @@ namespace as
 		mn::Buf<uint8_t> out;
 		mn::Buf<Fixup_Request> fixups;
 		mn::Map<const char*, size_t> symbols;
+		// pointer to the globals symbols to check local symbols against
+		mn::Map<const char*, Tkn> *globals;
 	};
 
 	inline static Emitter
-	emitter_new(Src* src)
+	emitter_new(Src* src, mn::Map<const char*, Tkn> *globals)
 	{
 		Emitter self{};
 		self.src = src;
 		self.fixups = mn::buf_new<Fixup_Request>();
 		self.symbols = mn::map_new<const char*, uint64_t>();
+		self.globals = globals;
 		return self;
 	}
 
@@ -74,13 +77,21 @@ namespace as
 	inline static void
 	emitter_register_symbol(Emitter& self, const Tkn& label)
 	{
+		// check global symbols
+		assert(self.globals != nullptr);
+
+		if(auto it = mn::map_lookup(*self.globals, label.str))
+		{
+			src_err(self.src, label, mn::strf("global symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+		}
+
 		if (mn::map_lookup(self.symbols, label.str) == nullptr)
 		{
 			mn::map_insert(self.symbols, label.str, self.out.count);
 		}
 		else
 		{
-			src_err(self.src, label, mn::strf("'{}' symbol redefinition", label.str));
+			src_err(self.src, label, mn::strf("'{}' local symbol redefinition", label.str));
 		}
 	}
 
@@ -243,7 +254,7 @@ namespace as
 					pkg,
 					mn::str_from_c(proc.name.str),
 					self.out.count,
-					mn::str_from_c(ins.lbl.str)
+					mn::str_from_c(ins.src.str)
 				);
 				vm::push64(self.out, 0);
 			}
@@ -264,7 +275,7 @@ namespace as
 					pkg,
 					mn::str_from_c(proc.name.str),
 					self.out.count,
-					mn::str_from_c(ins.lbl.str)
+					mn::str_from_c(ins.src.str)
 				);
 				vm::push64(self.out, 0);
 			}
@@ -1816,15 +1827,6 @@ namespace as
 			emitter_register_symbol(self, ins.op);
 			break;
 
-		case Tkn::KIND_KEYWORD_CONSTANT:
-			vm::pkg_constant_add(
-				pkg,
-				mn::str_from_c(ins.dst.str),
-				mn::Block{(void*)ins.src.rng.begin, size_t(ins.src.rng.end - ins.src.rng.begin)}
-			);
-			emitter_register_symbol(self, ins.dst);
-			break;
-
 		case Tkn::KIND_KEYWORD_DEBUGSTR:
 			vm::push8(self.out, uint8_t(vm::Op_DEBUGSTR));
 			emitter_reg_gen(self, ins.dst);
@@ -1869,14 +1871,71 @@ namespace as
 	vm::Pkg
 	src_gen(Src* src)
 	{
-		auto pkg = vm::pkg_new();
-		for(const auto& proc: src->procs)
-		{
-			auto emitter = emitter_new(src);
-			mn_defer(emitter_free(emitter));
+		// load all global symbols into globals map and try to resolve symbol redefinition erros
+		auto globals = mn::map_new<const char*, Tkn>();
+		mn_defer(mn::map_free(globals));
 
-			auto code = emitter_proc_gen(emitter, proc, pkg);
-			vm::pkg_proc_add(pkg, proc.name.str, code);
+		for(auto decl: src->decls)
+		{
+			switch(decl->kind)
+			{
+			case Decl::KIND_PROC:
+			{
+				if(auto it = mn::map_lookup(globals, decl->proc.name.str))
+					src_err(src, decl->proc.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+				else
+					mn::map_insert(globals, decl->proc.name.str, decl->proc.name);
+				break;
+			}
+
+			case Decl::KIND_CONSTANT:
+			{
+				if(auto it = mn::map_lookup(globals, decl->constant.name.str))
+					src_err(src, decl->constant.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+				else
+					mn::map_insert(globals, decl->constant.name.str, decl->constant.name);
+				break;
+			}
+
+			default:
+				assert(false && "unreachable");
+				break;
+			}
+		}
+
+		auto pkg = vm::pkg_new();
+
+		if (src_has_err(src))
+			return pkg;
+
+		for(auto decl: src->decls)
+		{
+			switch(decl->kind)
+			{
+			case Decl::KIND_PROC:
+			{
+				auto emitter = emitter_new(src, &globals);
+				mn_defer(emitter_free(emitter));
+
+				auto code = emitter_proc_gen(emitter, decl->proc, pkg);
+				vm::pkg_proc_add(pkg, decl->proc.name.str, code);
+				break;
+			}
+
+			case Decl::KIND_CONSTANT:
+			{
+				vm::pkg_constant_add(
+					pkg,
+					mn::str_from_c(decl->constant.name.str),
+					mn::Block{(void*)decl->constant.value.rng.begin, size_t(decl->constant.value.rng.end - decl->constant.value.rng.begin)}
+				);
+				break;
+			}
+
+			default:
+				assert(false && "unreachable");
+				break;
+			}
 		}
 		return pkg;
 	}

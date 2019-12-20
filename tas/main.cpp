@@ -192,7 +192,7 @@ main(int argc, char** argv)
 			return -1;
 		}
 
-		mn::print("{}", as::proc_dump(src, mn::memory::tmp()));
+		mn::print("{}", as::decl_dump(src, mn::memory::tmp()));
 		return 0;
 	}
 	else if(args.command == "build")

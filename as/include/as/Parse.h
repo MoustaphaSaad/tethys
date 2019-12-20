@@ -9,5 +9,5 @@ namespace as
 	parse(Src* src);
 
 	AS_EXPORT mn::Str
-	proc_dump(Src* src, mn::Allocator allocator = mn::allocator_top());
+	decl_dump(Src* src, mn::Allocator allocator = mn::allocator_top());
 }
