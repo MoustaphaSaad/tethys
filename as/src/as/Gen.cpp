@@ -143,7 +143,7 @@ namespace as
 		// convert the string value to int8_t
 		T c = 0;
 		// reads returns the number of the parsed items
-		size_t res = mn::reads(tkn.str, c);
+		[[maybe_unused]] size_t res = mn::reads(tkn.str, c);
 		// assert that we parsed the only item we have
 		assert(res == 1);
 		return c;
@@ -1867,6 +1867,84 @@ namespace as
 		return res;
 	}
 
+	inline static void
+	_escape_string(mn::Str &str, const char* begin, const char* end)
+	{
+		assert(end >= begin);
+
+		mn::str_reserve(str, end - begin);
+
+		for(auto it = begin; it < end; ++it)
+		{
+			char current = *it;
+			char next = 0;
+			if (it + 1 < end)
+				next = *(it + 1);
+
+			if(current == '\\' && next == 'a')
+			{
+				mn::buf_push(str, '\a');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'b')
+			{
+				mn::buf_push(str, '\b');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'f')
+			{
+				mn::buf_push(str, '\f');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'n')
+			{
+				mn::buf_push(str, '\n');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'r')
+			{
+				mn::buf_push(str, '\r');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 't')
+			{
+				mn::buf_push(str, '\t');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == 'v')
+			{
+				mn::buf_push(str, '\v');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == '0')
+			{
+				mn::buf_push(str, '\0');
+				++it;
+				continue;
+			}
+			else if(current == '\\' && next == '\\')
+			{
+				mn::buf_push(str, '\\');
+				++it;
+				continue;
+			}
+			else
+			{
+				mn::buf_push(str, current);
+				continue;
+			}
+		}
+
+		mn::str_null_terminate(str);
+	}
+
 	// API
 	vm::Pkg
 	src_gen(Src* src)
@@ -1908,6 +1986,9 @@ namespace as
 		if (src_has_err(src))
 			return pkg;
 
+		auto tmp_str = mn::str_new();
+		mn_defer(mn::str_free(tmp_str));
+
 		for(auto decl: src->decls)
 		{
 			switch(decl->kind)
@@ -1924,10 +2005,13 @@ namespace as
 
 			case Decl::KIND_CONSTANT:
 			{
+				mn::str_clear(tmp_str);
+				_escape_string(tmp_str, decl->constant.value.rng.begin, decl->constant.value.rng.end);
+
 				vm::pkg_constant_add(
 					pkg,
 					mn::str_from_c(decl->constant.name.str),
-					mn::Block{(void*)decl->constant.value.rng.begin, size_t(decl->constant.value.rng.end - decl->constant.value.rng.begin)}
+					block_from(tmp_str)
 				);
 				break;
 			}

@@ -837,7 +837,7 @@ namespace vm
 		case Op_DEBUGSTR:
 		{
 			auto& str_address = _load_reg(self);
-			mn::print("DEBUG: '{}'", (const char*)str_address.ptr);
+			mn::print("DEBUG: '{}'\n", (const char*)str_address.ptr);
 			break;
 		}
 		case Op_HALT:

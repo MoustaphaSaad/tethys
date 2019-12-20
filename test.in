@@ -1,18 +1,7 @@
 constant msg "Hello, World!\0"
 
 proc main
-	i32.load r0 1
-	i32.load r1 2
-
-	call add
-
 	u64.load r1 msg
 	debugstr r1
-
 	halt
-end
-
-proc add
-	i32.add r0 r1
-	ret
 end
