@@ -13,7 +13,7 @@ namespace as
 	};
 
 	inline static bool
-	_tkn_is_ignore(const Tkn& tkn)
+	tkn_is_ignore(const Tkn& tkn)
 	{
 		return tkn.kind == Tkn::KIND_COMMENT;
 	}
@@ -26,7 +26,7 @@ namespace as
 		self.tkns = mn::buf_clone(src->tkns);
 		self.ix = 0;
 		// remove ignore tokens
-		mn::buf_remove_if(self.tkns, [](const Tkn& tkn) { return _tkn_is_ignore(tkn); });
+		mn::buf_remove_if(self.tkns, [](const Tkn& tkn) { return tkn_is_ignore(tkn); });
 		return self;
 	}
 
@@ -43,7 +43,7 @@ namespace as
 	}
 
 	inline static Tkn
-	_parser_look(Parser* self, size_t k)
+	parser_look(Parser* self, size_t k)
 	{
 		if(self->ix + k >= self->tkns.count)
 			return Tkn{};
@@ -51,22 +51,22 @@ namespace as
 	}
 
 	inline static Tkn
-	_parser_look(Parser *self)
+	parser_look(Parser *self)
 	{
-		return _parser_look(self, 0);
+		return parser_look(self, 0);
 	}
 
 	inline static Tkn
-	_parser_look_kind(Parser* self, Tkn::KIND k)
+	parser_look_kind(Parser* self, Tkn::KIND k)
 	{
-		Tkn t = _parser_look(self);
+		Tkn t = parser_look(self);
 		if(t.kind == k)
 			return t;
 		return Tkn{};
 	}
 
 	inline static Tkn
-	_parser_eat(Parser* self)
+	parser_eat(Parser* self)
 	{
 		if(self->ix >= self->tkns.count)
 			return Tkn{};
@@ -74,16 +74,16 @@ namespace as
 	}
 
 	inline static Tkn
-	_parser_eat_kind(Parser* self, Tkn::KIND kind)
+	parser_eat_kind(Parser* self, Tkn::KIND kind)
 	{
-		Tkn t = _parser_look(self);
+		Tkn t = parser_look(self);
 		if(t.kind == kind)
-			return _parser_eat(self);
+			return parser_eat(self);
 		return Tkn{};
 	}
 
 	inline static Tkn
-	_parser_eat_must(Parser* self, Tkn::KIND kind)
+	parser_eat_must(Parser* self, Tkn::KIND kind)
 	{
 		if(self->ix >= self->tkns.count)
 		{
@@ -94,7 +94,7 @@ namespace as
 			return Tkn{};
 		}
 
-		Tkn tkn = _parser_eat(self);
+		Tkn tkn = parser_eat(self);
 		if(tkn.kind == kind)
 			return tkn;
 
@@ -107,12 +107,12 @@ namespace as
 	}
 
 	inline static Tkn
-	_parser_reg(Parser* self)
+	parser_reg(Parser* self)
 	{
-		auto op = _parser_look(self);
+		auto op = parser_look(self);
 		if (is_reg(op))
 		{
-			return _parser_eat(self);
+			return parser_eat(self);
 		}
 		
 		src_err(self->src, op, mn::strf("expected a register but found '{}'", op.str));
@@ -120,24 +120,24 @@ namespace as
 	}
 
 	inline static Tkn
-	_parser_imm(Parser* self, bool constant_allowed)
+	parser_imm(Parser* self, bool constant_allowed)
 	{
-		auto op = _parser_look(self);
+		auto op = parser_look(self);
 		if (op.kind == Tkn::KIND_INTEGER ||
 			op.kind == Tkn::KIND_FLOAT)
 		{
-			return _parser_eat(self);
+			return parser_eat(self);
 		}
 
 		if (constant_allowed && op.kind == Tkn::KIND_ID)
-			return _parser_eat(self);
+			return parser_eat(self);
 
 		src_err(self->src, op, mn::strf("expected a constant but found '{}'", op.str));
 		return Tkn{};
 	}
 
 	inline static bool
-	_is_load(const Tkn& tkn)
+	is_load(const Tkn& tkn)
 	{
 		return (tkn.kind == Tkn::KIND_KEYWORD_I8_LOAD ||
 				tkn.kind == Tkn::KIND_KEYWORD_I16_LOAD ||
@@ -150,7 +150,7 @@ namespace as
 	}
 
 	inline static bool
-	_is_arithmetic(const Tkn& tkn)
+	is_arithmetic(const Tkn& tkn)
 	{
 		return (tkn.kind == Tkn::KIND_KEYWORD_I8_ADD ||
 				tkn.kind == Tkn::KIND_KEYWORD_I16_ADD ||
@@ -187,7 +187,7 @@ namespace as
 	}
 
 	inline static bool
-	_is_cond_jump(const Tkn& tkn)
+	is_cond_jump(const Tkn& tkn)
 	{
 		return (tkn.kind == Tkn::KIND_KEYWORD_I8_JE ||
 				tkn.kind == Tkn::KIND_KEYWORD_I16_JE ||
@@ -240,7 +240,7 @@ namespace as
 	}
 
 	inline static bool
-	_is_mem_transfer(const Tkn& tkn)
+	is_mem_transfer(const Tkn& tkn)
 	{
 		return (tkn.kind == Tkn::KIND_KEYWORD_I8_READ ||
 				tkn.kind == Tkn::KIND_KEYWORD_I16_READ ||
@@ -261,14 +261,14 @@ namespace as
 	}
 
 	inline static bool
-	_is_push_pop(const Tkn& tkn)
+	is_push_pop(const Tkn& tkn)
 	{
 		return (tkn.kind == Tkn::KIND_KEYWORD_PUSH ||
 				tkn.kind == Tkn::KIND_KEYWORD_POP);
 	}
 
 	inline static bool
-	_is_cmp(const Tkn& tkn)
+	is_cmp(const Tkn& tkn)
 	{
 		return (tkn.kind == Tkn::KIND_KEYWORD_I8_CMP ||
 				tkn.kind == Tkn::KIND_KEYWORD_I16_CMP ||
@@ -281,7 +281,7 @@ namespace as
 	}
 
 	inline static bool
-	_is_pure_jump(const Tkn& tkn)
+	is_pure_jump(const Tkn& tkn)
 	{
 		return (tkn.kind == Tkn::KIND_KEYWORD_JE ||
 				tkn.kind == Tkn::KIND_KEYWORD_JNE ||
@@ -293,151 +293,151 @@ namespace as
 	}
 
 	inline static Ins
-	_parser_ins(Parser* self)
+	parser_ins(Parser* self)
 	{
 		Ins ins{};
 
-		Tkn op = _parser_look(self);
-		if (_is_load(op))
+		Tkn op = parser_look(self);
+		if (is_load(op))
 		{
-			ins.op = _parser_eat(self);
-			ins.dst = _parser_reg(self);
-			ins.src = _parser_imm(self, op.kind == Tkn::KIND_KEYWORD_U64_LOAD || op.kind == Tkn::KIND_KEYWORD_I64_LOAD);
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			ins.src = parser_imm(self, op.kind == Tkn::KIND_KEYWORD_U64_LOAD || op.kind == Tkn::KIND_KEYWORD_I64_LOAD);
 		}
-		else if (_is_arithmetic(op))
+		else if (is_arithmetic(op))
 		{
-			ins.op = _parser_eat(self);
-			ins.dst = _parser_reg(self);
-			auto src = _parser_look(self);
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			auto src = parser_look(self);
 			if (src.kind == Tkn::KIND_INTEGER || is_reg(src))
-				ins.src = _parser_eat(self);
+				ins.src = parser_eat(self);
 			else
 				src_err(self->src, src, mn::strf("expected an integer or a register"));
 		}
-		else if (_is_cond_jump(op))
+		else if (is_cond_jump(op))
 		{
-			ins.op = _parser_eat(self);
-			ins.dst = _parser_reg(self);
-			auto src = _parser_look(self);
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			auto src = parser_look(self);
 			if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
-				ins.src = _parser_eat(self);
+				ins.src = parser_eat(self);
 			else
 				src_err(self->src, src, mn::strf("expected an integer or a register"));
-			ins.lbl = _parser_eat_must(self, Tkn::KIND_ID);
+			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
 		}
-		else if(_is_mem_transfer(op))
+		else if(is_mem_transfer(op))
 		{
-			ins.op = _parser_eat(self);
-			ins.dst = _parser_reg(self);
-			ins.src = _parser_reg(self);
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			ins.src = parser_reg(self);
 		}
-		else if(_is_push_pop(op))
+		else if(is_push_pop(op))
 		{
-			ins.op = _parser_eat(self);
-			ins.dst = _parser_reg(self);
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
 		}
-		else if (_is_pure_jump(op))
+		else if (is_pure_jump(op))
 		{
-			ins.op = _parser_eat(self);
-			ins.lbl = _parser_eat_must(self, Tkn::KIND_ID);
+			ins.op = parser_eat(self);
+			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
 		}
-		else if(_is_cmp(op))
+		else if(is_cmp(op))
 		{
-			ins.op = _parser_eat(self);
-			ins.dst = _parser_reg(self);
-			auto src = _parser_look(self);
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
+			auto src = parser_look(self);
 			if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
-				ins.src = _parser_eat(self);
+				ins.src = parser_eat(self);
 			else
 				src_err(self->src, src, mn::strf("expected an integer or a register"));
 		}
 		else if (op.kind == Tkn::KIND_KEYWORD_CALL)
 		{
-			ins.op = _parser_eat(self);
-			ins.lbl = _parser_eat_must(self, Tkn::KIND_ID);
+			ins.op = parser_eat(self);
+			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
 		}
 		else if(op.kind == Tkn::KIND_KEYWORD_RET)
 		{
-			ins.op = _parser_eat(self);
+			ins.op = parser_eat(self);
 		}
 		// label
 		else if (op.kind == Tkn::KIND_ID)
 		{
-			ins.op = _parser_eat(self);
-			_parser_eat_must(self, Tkn::KIND_COLON);
+			ins.op = parser_eat(self);
+			parser_eat_must(self, Tkn::KIND_COLON);
 		}
 		else if(op.kind == Tkn::KIND_KEYWORD_HALT)
 		{
-			ins.op = _parser_eat(self);
+			ins.op = parser_eat(self);
 		}
 		else if(op.kind == Tkn::KIND_KEYWORD_DEBUGSTR)
 		{
-			ins.op = _parser_eat(self);
-			ins.dst = _parser_reg(self);
+			ins.op = parser_eat(self);
+			ins.dst = parser_reg(self);
 		}
 
 		return ins;
 	}
 
 	inline static Proc
-	_parser_proc(Parser* self)
+	parser_proc(Parser* self)
 	{
-		_parser_eat_must(self, Tkn::KIND_KEYWORD_PROC);
+		parser_eat_must(self, Tkn::KIND_KEYWORD_PROC);
 		auto proc = proc_new();
-		proc.name = _parser_eat_must(self, Tkn::KIND_ID);
+		proc.name = parser_eat_must(self, Tkn::KIND_ID);
 
-		while (_parser_look_kind(self, Tkn::KIND_KEYWORD_END) == false)
+		while (parser_look_kind(self, Tkn::KIND_KEYWORD_END) == false)
 		{
-			auto ins = _parser_ins(self);
+			auto ins = parser_ins(self);
 			if (ins.op)
 				mn::buf_push(proc.ins, ins);
 			else
 				break;
 		}
 
-		_parser_eat_kind(self, Tkn::KIND_KEYWORD_END);
+		parser_eat_kind(self, Tkn::KIND_KEYWORD_END);
 
 		return proc;
 	}
 
 	inline static Constant
-	_parser_constant(Parser* self)
+	parser_constant(Parser* self)
 	{
-		_parser_eat_must(self, Tkn::KIND_KEYWORD_CONSTANT);
+		parser_eat_must(self, Tkn::KIND_KEYWORD_CONSTANT);
 		Constant constant{};
-		constant.name = _parser_eat_must(self, Tkn::KIND_ID);
-		constant.value = _parser_eat_must(self, Tkn::KIND_STRING);
+		constant.name = parser_eat_must(self, Tkn::KIND_ID);
+		constant.value = parser_eat_must(self, Tkn::KIND_STRING);
 		return constant;
 	}
 
 	inline static void
-	_proc_dump(Proc* proc, mn::Stream out)
+	proc_dump(Proc* proc, mn::Stream out)
 	{
 		mn::print_to(out, "PROC {}\n", proc->name.str);
 		for(const auto& ins: proc->ins)
 		{
-			if (_is_load(ins.op) ||
-				_is_arithmetic(ins.op))
+			if (is_load(ins.op) ||
+				is_arithmetic(ins.op))
 			{
 				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
 			}
-			else if(_is_cond_jump(ins.op))
+			else if(is_cond_jump(ins.op))
 			{
 				mn::print_to(out, "  {} {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str, ins.lbl.str);
 			}
-			else if(_is_mem_transfer(ins.op))
+			else if(is_mem_transfer(ins.op))
 			{
 				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
 			}
-			else if(_is_push_pop(ins.op))
+			else if(is_push_pop(ins.op))
 			{
 				mn::print_to(out, "  {} {}\n", ins.op.str, ins.dst.str);
 			}
-			else if(_is_pure_jump(ins.op))
+			else if(is_pure_jump(ins.op))
 			{
 				mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
 			}
-			else if(_is_cmp(ins.op))
+			else if(is_cmp(ins.op))
 			{
 				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
 			}
@@ -466,7 +466,7 @@ namespace as
 	}
 
 	inline static void
-	_constant_dump(Constant *constant, mn::Stream out)
+	constant_dump(Constant *constant, mn::Stream out)
 	{
 		mn::print_to(out, "constant {} \"{}\"\n", constant->name.str, constant->value.str);
 	}
@@ -480,10 +480,10 @@ namespace as
 
 		while(parser.ix < parser.tkns.count)
 		{
-			auto tkn = _parser_look(&parser);
+			auto tkn = parser_look(&parser);
 			if (tkn.kind == Tkn::KIND_KEYWORD_PROC)
 			{
-				auto proc = _parser_proc(&parser);
+				auto proc = parser_proc(&parser);
 				if (src_has_err(src))
 				{
 					proc_free(proc);
@@ -493,7 +493,7 @@ namespace as
 			}
 			else if(tkn.kind == Tkn::KIND_KEYWORD_CONSTANT)
 			{
-				auto constant = _parser_constant(&parser);
+				auto constant = parser_constant(&parser);
 				if (src_has_err(src))
 					break;
 				mn::buf_push(src->decls, decl_constant_new(constant));
@@ -514,11 +514,11 @@ namespace as
 			switch(decl->kind)
 			{
 			case Decl::KIND_PROC:
-				_proc_dump(&decl->proc, out);
+				proc_dump(&decl->proc, out);
 				break;
 
 			case Decl::KIND_CONSTANT:
-				_constant_dump(&decl->constant, out);
+				constant_dump(&decl->constant, out);
 				break;
 
 			default:

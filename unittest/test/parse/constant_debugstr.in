@@ -1,0 +1,7 @@
+constant msg "Hello, World!\0"
+
+proc main
+	u64.load r1 msg
+	debugstr r1
+	halt
+end
