@@ -1,5 +1,6 @@
 #pragma once
 
+#include "as/Exports.h"
 #include "as/Tkn.h"
 
 #include <mn/Buf.h>
@@ -40,11 +41,40 @@ namespace as
 		proc_free(self);
 	}
 
+
 	struct Constant
 	{
 		Tkn name;
 		Tkn value;
 	};
+
+
+	struct C_Proc
+	{
+		Tkn name;
+		mn::Buf<Tkn> args;
+	};
+
+	inline static C_Proc
+	c_proc_new()
+	{
+		C_Proc self{};
+		self.args = mn::buf_new<Tkn>();
+		return self;
+	}
+
+	inline static void
+	c_proc_free(C_Proc& self)
+	{
+		mn::buf_free(self.args);
+	}
+
+	inline static void
+	destruct(C_Proc& self)
+	{
+		c_proc_free(self);
+	}
+
 
 	struct Decl
 	{
@@ -52,7 +82,8 @@ namespace as
 		{
 			KIND_NONE,
 			KIND_PROC,
-			KIND_CONSTANT
+			KIND_CONSTANT,
+			KIND_C_PROC,
 		};
 
 		KIND kind;
@@ -60,16 +91,20 @@ namespace as
 		{
 			Proc proc;
 			Constant constant;
+			C_Proc c_proc;
 		};
 	};
 
-	Decl*
+	AS_EXPORT Decl*
 	decl_proc_new(Proc proc);
 
-	Decl*
+	AS_EXPORT Decl*
 	decl_constant_new(Constant constant);
 
-	void
+	AS_EXPORT Decl*
+	decl_c_proc_new(C_Proc c_proc);
+
+	AS_EXPORT void
 	decl_free(Decl* self);
 
 	inline static void
