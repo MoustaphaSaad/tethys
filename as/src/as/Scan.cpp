@@ -333,6 +333,21 @@ namespace as
 				tkn.str = ":";
 				no_intern = true;
 				break;
+			case '(':
+				tkn.kind = Tkn::KIND_OPEN_PAREN;
+				tkn.str = "(";
+				no_intern = true;
+				break;
+			case ')':
+				tkn.kind = Tkn::KIND_CLOSE_PAREN;
+				tkn.str = ")";
+				no_intern = true;
+				break;
+			case ',':
+				tkn.kind = Tkn::KIND_COMMA;
+				tkn.str = ",";
+				no_intern = true;
+				break;
 			case ';':
 				tkn.kind = Tkn::KIND_COMMENT;
 				tkn.str = scanner_comment(self);

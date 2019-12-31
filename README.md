@@ -13,7 +13,7 @@ Our Virtual Machine creates a virtual processor that runs a single program.
 
 Because we're creating our own processor, we get to decide what the assembly/bytecode this processor can understand and execute. We're free to do whatever we want.
 
-We're going to start completely from scratch and slowly build our mountain step by step.
+We're going to start completely from scratch and slowly build our mountain step by step. At the start of each day we branch from the master branch and after we're done working we merge the progress into the master. I don't delete branches after merging so you can find them here [ALL BRANCHES](https://github.com/MoustaphaSaad/tethys/branches/all)
 
 We'll write our code in a [C-Style C++](https://moustaphasaad.github.io/Pure_Coding_Style.html).
 
@@ -3193,3 +3193,62 @@ emitter_register_symbol(Emitter& self, const Tkn& label)
 ```
 
 and that's it for today
+
+### Day-16
+
+Today we'll start working on C function interop, our goal is to eventually accept C procedures forward declarations
+```asm
+constant msg "Hello, World!\0"
+
+; just like this
+proc C.add(i32, i32)
+
+proc main
+	halt	
+end
+```
+
+Today we'll work on the scanner and we'll make it accept the above code
+we'll need to add the following tokens to our token listing
+
+```C++
+...
+TOKEN(OPEN_PAREN, "("), \
+TOKEN(CLOSE_PAREN, ")"), \
+TOKEN(COMMA, ","), \
+...
+TOKEN(KEYWORDS__BEGIN, ""), \
+TOKEN(KEYWORD_I8,  "i8"), \
+TOKEN(KEYWORD_I16, "i16"), \
+TOKEN(KEYWORD_I32, "i32"), \
+TOKEN(KEYWORD_I64, "i64"), \
+TOKEN(KEYWORD_U8,  "u8"), \
+TOKEN(KEYWORD_U16, "u16"), \
+TOKEN(KEYWORD_U32, "u32"), \
+TOKEN(KEYWORD_U64, "u64"), \
+...
+```
+
+then we'll need to add the support for our 3 non keywords tokens in the scanner
+```C++
+...
+case '(':
+	tkn.kind = Tkn::KIND_OPEN_PAREN;
+	tkn.str = "(";
+	no_intern = true;
+	break;
+case ')':
+	tkn.kind = Tkn::KIND_CLOSE_PAREN;
+	tkn.str = ")";
+	no_intern = true;
+	break;
+case ',':
+	tkn.kind = Tkn::KIND_COMMA;
+	tkn.str = ",";
+	no_intern = true;
+	break;
+case ';':
+...
+```
+
+and that's it for today, in the next day we'll work on the parsing
