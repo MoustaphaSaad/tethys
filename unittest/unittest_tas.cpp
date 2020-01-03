@@ -638,7 +638,7 @@ TEST_CASE("parse: mem read write")
 		i32.add sp 4 ; free i32
 
 		i32.read r0 sp
-		i32.add sp 4 ; free i32س
+		i32.add sp 4 ; free i32
 
 		halt
 	end
