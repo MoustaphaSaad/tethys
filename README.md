@@ -3252,3 +3252,89 @@ case ';':
 ```
 
 and that's it for today, in the next day we'll work on the parsing
+
+### Day-17
+
+today we'll work on adding c procedures support in the parser
+
+first, we'll need to add the c procedure declaration to our parse tree
+```C++
+struct C_Proc
+{
+	Tkn name;
+	mn::Buf<Tkn> args;
+};
+
+struct Decl
+{
+	enum KIND
+	{
+		KIND_NONE,
+		KIND_PROC,
+		KIND_CONSTANT,
+		KIND_C_PROC,
+	};
+
+	KIND kind;
+	union
+	{
+		Proc proc;
+		Constant constant;
+		C_Proc c_proc;
+	};
+};
+```
+
+then we'll need to parse it
+```C++
+inline static C_Proc
+parser_c_proc(Parser* self)
+{
+	parser_eat_must(self, Tkn::KIND_KEYWORD_PROC);
+	auto proc = c_proc_new();
+	proc.name = parser_eat_must(self, Tkn::KIND_ID);
+
+	parser_eat_must(self, Tkn::KIND_OPEN_PAREN);
+	while(parser_look_kind(self, Tkn::KIND_CLOSE_PAREN) == false)
+	{
+		auto tkn = parser_look(self);
+		if (is_type(tkn))
+			mn::buf_push(proc.args, parser_eat(self));
+		else
+			src_err(self->src, parser_eat(self), mn::strf("expected a type token"));
+		parser_eat_kind(self, Tkn::KIND_COMMA);
+	}
+	parser_eat_must(self, Tkn::KIND_CLOSE_PAREN);
+	return proc;
+}
+```
+
+and we'll need to change our main parse function to check for C procedures, all C procs start with package name which is `C` then a `.`
+so for example if you have a shared library called `foo` and you want to declare proc called `bar` inside it you'd write
+`proc C.foo.bar(i32, i32)`
+
+```C++
+auto proc_name = parser_look(&parser, 1);
+if(mn::str_prefix(proc_name.str, "C."))
+{
+	auto c_proc = parser_c_proc(&parser);
+	if(src_has_err(src))
+	{
+		c_proc_free(c_proc);
+		break;
+	}
+	mn::buf_push(src->decls, decl_c_proc_new(c_proc));
+}
+else
+{
+	auto proc = parser_proc(&parser);
+	if (src_has_err(src))
+	{
+		proc_free(proc);
+		break;
+	}
+	mn::buf_push(src->decls, decl_proc_new(proc));
+}
+```
+
+

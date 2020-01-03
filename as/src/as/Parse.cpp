@@ -292,6 +292,19 @@ namespace as
 				tkn.kind == Tkn::KIND_KEYWORD_JMP);
 	}
 
+	inline static bool
+	is_type(const Tkn& tkn)
+	{
+		return (tkn.kind == Tkn::KIND_KEYWORD_I8  ||
+				tkn.kind == Tkn::KIND_KEYWORD_I16 ||
+				tkn.kind == Tkn::KIND_KEYWORD_I32 ||
+				tkn.kind == Tkn::KIND_KEYWORD_I64 ||
+				tkn.kind == Tkn::KIND_KEYWORD_U8  ||
+				tkn.kind == Tkn::KIND_KEYWORD_U16 ||
+				tkn.kind == Tkn::KIND_KEYWORD_U32 ||
+				tkn.kind == Tkn::KIND_KEYWORD_U64);
+	}
+
 	inline static Ins
 	parser_ins(Parser* self)
 	{
@@ -395,8 +408,29 @@ namespace as
 				break;
 		}
 
-		parser_eat_kind(self, Tkn::KIND_KEYWORD_END);
+		parser_eat_must(self, Tkn::KIND_KEYWORD_END);
 
+		return proc;
+	}
+
+	inline static C_Proc
+	parser_c_proc(Parser* self)
+	{
+		parser_eat_must(self, Tkn::KIND_KEYWORD_PROC);
+		auto proc = c_proc_new();
+		proc.name = parser_eat_must(self, Tkn::KIND_ID);
+
+		parser_eat_must(self, Tkn::KIND_OPEN_PAREN);
+		while(parser_look_kind(self, Tkn::KIND_CLOSE_PAREN) == false)
+		{
+			auto tkn = parser_look(self);
+			if (is_type(tkn))
+				mn::buf_push(proc.args, parser_eat(self));
+			else
+				src_err(self->src, parser_eat(self), mn::strf("expected a type token"));
+			parser_eat_kind(self, Tkn::KIND_COMMA);
+		}
+		parser_eat_must(self, Tkn::KIND_CLOSE_PAREN);
 		return proc;
 	}
 
@@ -471,6 +505,19 @@ namespace as
 		mn::print_to(out, "constant {} \"{}\"\n", constant->name.str, constant->value.str);
 	}
 
+	inline static void
+	c_proc_dump(C_Proc* proc, mn::Stream out)
+	{
+		mn::print_to(out, "proc {}(", proc->name.str);
+		for(size_t i = 0; i < proc->args.count; ++i)
+		{
+			if(i != 0)
+				mn::print_to(out, ", ");
+			mn::print_to(out, "{}", proc->args[i].str);
+		}
+		mn::print_to(out, ")\n");
+	}
+
 	// API
 	bool
 	parse(Src* src)
@@ -483,13 +530,28 @@ namespace as
 			auto tkn = parser_look(&parser);
 			if (tkn.kind == Tkn::KIND_KEYWORD_PROC)
 			{
-				auto proc = parser_proc(&parser);
-				if (src_has_err(src))
+				// check if the proc is C proc
+				auto proc_name = parser_look(&parser, 1);
+				if(mn::str_prefix(proc_name.str, "C."))
 				{
-					proc_free(proc);
-					break;
+					auto c_proc = parser_c_proc(&parser);
+					if(src_has_err(src))
+					{
+						c_proc_free(c_proc);
+						break;
+					}
+					mn::buf_push(src->decls, decl_c_proc_new(c_proc));
 				}
-				mn::buf_push(src->decls, decl_proc_new(proc));
+				else
+				{
+					auto proc = parser_proc(&parser);
+					if (src_has_err(src))
+					{
+						proc_free(proc);
+						break;
+					}
+					mn::buf_push(src->decls, decl_proc_new(proc));
+				}
 			}
 			else if(tkn.kind == Tkn::KIND_KEYWORD_CONSTANT)
 			{
@@ -519,6 +581,10 @@ namespace as
 
 			case Decl::KIND_CONSTANT:
 				constant_dump(&decl->constant, out);
+				break;
+
+			case Decl::KIND_C_PROC:
+				c_proc_dump(&decl->c_proc, out);
 				break;
 
 			default:
