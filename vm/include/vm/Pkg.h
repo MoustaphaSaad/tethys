@@ -1,10 +1,12 @@
 #pragma once
 
 #include "vm/Exports.h"
+#include "vm/C.h"
 
 #include <mn/Str.h>
 #include <mn/Buf.h>
 #include <mn/Map.h>
+#include <mn/Result.h>
 
 namespace vm
 {
@@ -34,6 +36,7 @@ namespace vm
 		mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
 		mn::Buf<Reloc> relocs;
 		mn::Buf<Reloc> constant_relocs;
+		mn::Buf<C_Proc> c_procs;
 	};
 
 	VM_EXPORT Pkg
@@ -87,6 +90,6 @@ namespace vm
 	// this will load the package bytecode into a cpu core
 	struct Core;
 
-	VM_EXPORT void
+	VM_EXPORT mn::Err
 	pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes = 8ULL * 1024ULL * 1024ULL);
 }

@@ -260,7 +260,12 @@ main(int argc, char** argv)
 		auto cpu = vm::core_new();
 		mn_defer(vm::core_free(cpu));
 
-		vm::pkg_core_load(pkg, cpu);
+		auto err = vm::pkg_core_load(pkg, cpu);
+		if(err)
+		{
+			mn::printerr("[Error]: {}\n", err);
+			return -1;
+		}
 
 		while (cpu.state == vm::Core::STATE_OK)
 			vm::core_ins_execute(cpu);

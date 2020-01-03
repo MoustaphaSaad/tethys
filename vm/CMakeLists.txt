@@ -7,12 +7,14 @@ set(HEADER_FILES
 	include/vm/Util.h
 	include/vm/Core.h
 	include/vm/Pkg.h
+	include/vm/C.h
 )
 
 # list the source files
 set(SOURCE_FILES
 	src/vm/Core.cpp
 	src/vm/Pkg.cpp
+	src/vm/C.cpp
 )
 
 

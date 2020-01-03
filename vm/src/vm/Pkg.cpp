@@ -86,6 +86,7 @@ namespace vm
 		self.procs = mn::map_new<mn::Str, mn::Buf<uint8_t>>();
 		self.relocs = mn::buf_new<Reloc>();
 		self.constant_relocs = mn::buf_new<Reloc>();
+		self.c_procs = mn::buf_new<C_Proc>();
 		return self;
 	}
 
@@ -96,6 +97,7 @@ namespace vm
 		destruct(self.procs);
 		destruct(self.relocs);
 		destruct(self.constant_relocs);
+		destruct(self.c_procs);
 	}
 
 	bool
@@ -190,6 +192,22 @@ namespace vm
 			write_string(f, reloc.target_name);
 			mn::stream_write(f, mn::block_from(reloc.source_offset));
 		}
+
+		// write c procs count
+		len = uint32_t(self.c_procs.count);
+		mn::stream_write(f, mn::block_from(len));
+
+		// write each proc
+		for(const auto &proc: self.c_procs)
+		{
+			write_string(f, proc.lib);
+			write_string(f, proc.name);
+			
+			// write arg_types count
+			len = uint32_t(proc.arg_types.count);
+			mn::stream_write(f, mn::block_from(len));
+			mn::stream_write(f, mn::block_from(proc.arg_types));
+		}
 	}
 
 	Pkg
@@ -257,12 +275,40 @@ namespace vm
 			mn::buf_push(self.constant_relocs, reloc);
 		}
 
+		// read c procs count
+		len = 0;
+		mn::stream_read(f, mn::block_from(len));
+		mn::buf_reserve(self.c_procs, len);
+
+		// read each c proc
+		for(size_t i = 0; i < len; ++i)
+		{
+			auto proc = c_proc_new();
+			proc.lib = read_string(f);
+			proc.name = read_string(f);
+
+			// read args count
+			uint32_t arg_len = 0;
+			mn::stream_read(f, mn::block_from(arg_len));
+			// read arg_types
+			mn::buf_resize(proc.arg_types, arg_len);
+			mn::stream_read(f, mn::block_from(proc.arg_types));
+
+			mn::buf_push(self.c_procs, proc);
+		}
+
 		return self;
 	}
 
-	void
+	mn::Err
 	pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes)
 	{
+		// search for each proc
+		for(const auto& cproc: self.c_procs)
+		{
+			mn::print("c proc: '{}' '{}'\n", cproc.lib, cproc.name);
+		}
+
 		auto loaded_procs_table = mn::map_new<mn::Str, uint64_t>();
 		mn_defer(mn::map_free(loaded_procs_table));
 
@@ -280,8 +326,13 @@ namespace vm
 		for(const auto& reloc: self.relocs)
 		{
 			auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
+			if (source_it == nullptr)
+				return mn::Err{ "relocation source procedure '{}' not found", reloc.source_name };
+
 			auto target_it = mn::map_lookup(loaded_procs_table, reloc.target_name);
-			assert(source_it && target_it);
+			if (target_it == nullptr)
+				return mn::Err{ "relocation target procedure '{}' not found", reloc.target_name };
+
 			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
 		}
 
@@ -303,13 +354,22 @@ namespace vm
 		for(const auto& reloc: self.constant_relocs)
 		{
 			auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
+			if (source_it == nullptr)
+				return mn::Err{ "relocation source procedure '{}' not found", reloc.source_name };
+
 			auto target_it = mn::map_lookup(loaded_constants_table, reloc.target_name);
-			assert(source_it && target_it);
+			if (target_it == nullptr)
+				return mn::Err{ "relocation target constant '{}' not found", reloc.target_name };
+
 			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, uint64_t(core.stack.ptr + target_it->value));
 		}
 
 		auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));
+		if(main_it == nullptr)
+			return mn::Err{ "undefined main proc" };
+
 		core.r[Reg_IP].u64 = main_it->value;
 		core.r[Reg_SP].ptr = core.stack.ptr + stack_size_in_bytes;
+		return mn::Err{};
 	}
 }
