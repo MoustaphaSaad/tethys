@@ -101,7 +101,7 @@ namespace as
 				}
 				mn::print_to(out, "\n");
 			}
-			mn::print_to(out, "Error[{}:{}:{}]: {}\n\n", self->path, e.pos.line, e.pos.col, e.msg);
+			mn::print_to(out, "Error[{}:{}:{}]: {}\n", self->path, e.pos.line, e.pos.col, e.msg);
 		}
 		return mn::memory_stream_str(out);
 	}

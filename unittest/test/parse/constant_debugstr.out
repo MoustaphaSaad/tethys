@@ -1,6 +1,0 @@
-constant msg "Hello, World!\0"
-PROC main
-  u64.load r1 msg
-  INVALID OP
-  halt
-END

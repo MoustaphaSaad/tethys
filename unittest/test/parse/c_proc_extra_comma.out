@@ -1,5 +1,0 @@
-constant msg "Hello, World!\0"
-proc C.add(i32, i32)
-PROC main
-  halt
-END

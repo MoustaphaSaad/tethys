@@ -22,8 +22,3 @@ target_include_directories(tethys_unittest
 	PRIVATE
 		${CMAKE_SOURCE_DIR}/external/doctest
 )
-
-target_compile_definitions(tethys_unittest
-	PRIVATE
-		TEST_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test"
-)
