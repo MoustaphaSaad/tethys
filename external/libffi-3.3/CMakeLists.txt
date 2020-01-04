@@ -17,10 +17,4 @@ if(WIN32)
 	)
 	add_dependencies(libffi deploy_libffi)
 elseif(UNIX)
-	message(FATAL_ERROR "libffi is not built on linux")
-	# set_target_properties(zlib
-	# 	PROPERTIES
-	# 	IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/bin/linux/libzlib.so.1.2.11
-	# 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include
-	# )
 endif()

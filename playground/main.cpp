@@ -1,7 +1,9 @@
 #include <mn/IO.h>
+#include <mn/Library.h>
 #include <ffi.h>
+#include <ffi/FFI.h>
 
-int myadd(int a, int b)
+extern "C" int myadd(int a, int b)
 {
 	return a + b;
 }
@@ -9,6 +11,12 @@ int myadd(int a, int b)
 int
 main(int, char**)
 {
+	foo();
+
+	auto l = mn::library_open("");
+	auto f = mn::library_proc(l, "myadd");
+	mn::print("{}, {}\n", l, f);
+	mn::library_close(l);
 	mn::print("Hello, World!");
 
 	ffi_cif cif;

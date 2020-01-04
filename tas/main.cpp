@@ -55,7 +55,7 @@ args_parse(Args& self, int argc, char** argv)
 	{
 		if(::strcmp(argv[i], "-o") == 0)
 		{
-			if(i + 1 >= argc)
+			if(i + 1 >= size_t(argc))
 			{
 				mn::printerr("you need to specify output name\n");
 				return false;

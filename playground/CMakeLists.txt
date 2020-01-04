@@ -15,7 +15,7 @@ target_link_libraries(playground
 	MoustaphaSaad::mn
 	MoustaphaSaad::vm
 	MoustaphaSaad::as
-	libffi
+	MoustaphaSaad::ffi
 )
 
 # make it reflect the same structure as the one on disk
@@ -27,10 +27,20 @@ if(WIN32)
 		PRIVATE
 			/WX /W4
 	)
+	target_link_libraries(playground
+		PUBLIC
+			libffi
+	)
 elseif(UNIX)
 	target_compile_options(playground
 		PRIVATE
 			-Wall -Werror
+	)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(libffi REQUIRED IMPORTED_TARGET libffi)
+	target_link_libraries(playground
+		PUBLIC
+			PkgConfig::libffi
 	)
 endif()
 
