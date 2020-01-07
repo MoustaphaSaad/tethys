@@ -20,4 +20,14 @@ namespace vm
 		mn::str_free(self.name);
 		mn::buf_free(self.arg_types);
 	}
+
+	C_Proc
+	c_proc_clone(const C_Proc& other, mn::Allocator allocator)
+	{
+		C_Proc self{};
+		self.lib = mn::str_clone(other.lib, allocator);
+		self.name = mn::str_clone(other.name, allocator);
+		self.arg_types = mn::buf_clone(other.arg_types, allocator);
+		return self;
+	}
 }

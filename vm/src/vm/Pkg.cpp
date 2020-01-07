@@ -4,6 +4,7 @@
 #include <mn/File.h>
 #include <mn/Path.h>
 #include <mn/Defer.h>
+#include <mn/Library.h>
 
 namespace vm
 {
@@ -303,10 +304,55 @@ namespace vm
 	mn::Err
 	pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes)
 	{
-		// search for each proc
+		auto loaded_libraries = mn::map_new<mn::Str, size_t>();
+		auto loaded_c_procs_table = mn::map_new<mn::Str, size_t>();
+		mn_defer({
+			mn::map_free(loaded_libraries);
+			destruct(loaded_c_procs_table);
+		});
+
+		// search and open the libraries
 		for(const auto& cproc: self.c_procs)
 		{
-			mn::print("c proc: '{}' '{}'\n", cproc.lib, cproc.name);
+			// check the loaded libraries
+			mn::Library lib = nullptr;
+			if(auto it = mn::map_lookup(loaded_libraries, cproc.lib))
+			{
+				lib = core.c_libraries[it->value];
+			}
+			else
+			{
+				if (cproc.lib == "C")
+				{
+					lib = mn::library_open("msvcrt.dll");
+				}
+				else
+				{
+					lib = mn::library_open(mn::str_tmpf("{}.{}", cproc.lib, "dll"));
+				}
+				if(lib == nullptr)
+					return mn::Err{"'{}' library not found", cproc.lib};
+				// add the library to the table
+				mn::map_insert(loaded_libraries, cproc.lib, core.c_libraries.count);
+				// add the library to the core
+				mn::buf_push(core.c_libraries, lib);
+			}
+
+			// now we have the library we need to get the proc from it
+			auto ptr = mn::library_proc(lib, cproc.name);
+			if(ptr == nullptr)
+				return mn::Err{"'{}.{}' procedure not found", cproc.lib, cproc.name};
+
+			// add the proc to the table
+			size_t proc_index = core.c_procs_desc.count;
+			if(cproc.lib == "C")
+				mn::map_insert(loaded_c_procs_table, mn::strf("C.{}", cproc.name), proc_index);
+			else
+				mn::map_insert(loaded_c_procs_table, mn::strf("C.{}.{}", cproc.lib, cproc.name), proc_index);
+
+			// add the proc to the core
+			mn::buf_push(core.c_procs_desc, clone(cproc));
+			mn::buf_push(core.c_procs_address, ptr);
 		}
 
 		auto loaded_procs_table = mn::map_new<mn::Str, uint64_t>();
@@ -329,11 +375,22 @@ namespace vm
 			if (source_it == nullptr)
 				return mn::Err{ "relocation source procedure '{}' not found", reloc.source_name };
 
-			auto target_it = mn::map_lookup(loaded_procs_table, reloc.target_name);
-			if (target_it == nullptr)
-				return mn::Err{ "relocation target procedure '{}' not found", reloc.target_name };
+			if(mn::str_prefix(reloc.target_name, "C."))
+			{
+				auto target_it = mn::map_lookup(loaded_c_procs_table, reloc.target_name);
+				if (target_it == nullptr)
+					return mn::Err{ "relocation target procedure '{}' not found", reloc.target_name };
 
-			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+				write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+			}
+			else
+			{
+				auto target_it = mn::map_lookup(loaded_procs_table, reloc.target_name);
+				if (target_it == nullptr)
+					return mn::Err{ "relocation target procedure '{}' not found", reloc.target_name };
+
+				write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+			}
 		}
 
 		auto loaded_constants_table = mn::map_new<mn::Str, uint64_t>();

@@ -3,6 +3,9 @@
 #include "vm/Util.h"
 
 #include <mn/IO.h>
+#include <mn/Defer.h>
+
+#include <ffi.h>
 
 namespace vm
 {
@@ -45,6 +48,9 @@ namespace vm
 		Core self{};
 		self.bytecode = mn::buf_new<uint8_t>();
 		self.stack = mn::buf_new<uint8_t>();
+		self.c_libraries = mn::buf_new<mn::Library>();
+		self.c_procs_address = mn::buf_new<void*>();
+		self.c_procs_desc = mn::buf_new<C_Proc>();
 		return self;
 	}
 
@@ -53,6 +59,9 @@ namespace vm
 	{
 		mn::buf_free(self.bytecode);
 		mn::buf_free(self.stack);
+		destruct(self.c_libraries);
+		mn::buf_free(self.c_procs_address);
+		destruct(self.c_procs_desc);
 	}
 
 	void
@@ -816,6 +825,163 @@ namespace vm
 			SP.ptr = ptr;
 			// jump to proc address
 			self.r[Reg_IP].u64 = address;
+			break;
+		}
+		case Op_C_CALL:
+		{
+			// load c proc index
+			auto ix = pop64(self.bytecode, self.r[Reg_IP].u64);
+			if(ix >= self.c_procs_desc.count)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			auto& cproc = self.c_procs_desc[ix];
+			auto cproc_ptr= self.c_procs_address[ix];
+			
+			ffi_cif cif;
+			auto arg_types = mn::buf_with_count<ffi_type*>(cproc.arg_types.count);
+			auto arg_values = mn::buf_with_count<void*>(cproc.arg_types.count);
+			mn_defer({
+				mn::buf_free(arg_types);
+				mn::buf_free(arg_values);
+			});
+
+			char* it = (char*)self.r[Reg_SP].ptr;
+			for(size_t i = 0; i < cproc.arg_types.count; ++i)
+			{
+				if(cproc.arg_types[i] == C_TYPE_INT8)
+				{
+					if(valid_next_bytes(self, it, 1) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_sint8;
+					arg_values[i] = it;
+					it += 1;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_INT16)
+				{
+					if(valid_next_bytes(self, it, 2) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_sint16;
+					arg_values[i] = it;
+					it += 2;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_INT32)
+				{
+					if(valid_next_bytes(self, it, 4) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_sint32;
+					arg_values[i] = it;
+					it += 4;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_INT64)
+				{
+					if(valid_next_bytes(self, it, 8) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_sint64;
+					arg_values[i] = it;
+					it += 8;
+				}
+				if(cproc.arg_types[i] == C_TYPE_UINT8)
+				{
+					if(valid_next_bytes(self, it, 1) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_uint8;
+					arg_values[i] = it;
+					it += 1;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_UINT16)
+				{
+					if(valid_next_bytes(self, it, 2) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_uint16;
+					arg_values[i] = it;
+					it += 2;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_UINT32)
+				{
+					if(valid_next_bytes(self, it, 4) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_uint32;
+					arg_values[i] = it;
+					it += 4;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_UINT64)
+				{
+					if(valid_next_bytes(self, it, 8) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_uint64;
+					arg_values[i] = it;
+					it += 8;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_FLOAT32)
+				{
+					if(valid_next_bytes(self, it, 4) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_float;
+					arg_values[i] = it;
+					it += 4;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_FLOAT64)
+				{
+					if(valid_next_bytes(self, it, 8) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_double;
+					arg_values[i] = it;
+					it += 8;
+				}
+				else if(cproc.arg_types[i] == C_TYPE_PTR)
+				{
+					if(valid_next_bytes(self, it, sizeof(void*)) == false)
+					{
+						self.state = Core::STATE_ERR;
+						break;
+					}
+					arg_types[i] = &ffi_type_pointer;
+					arg_values[i] = it;
+					it += sizeof(void*);
+				}
+			}
+			ffi_arg ret;
+			auto res = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, uint32_t(cproc.arg_types.count), &ffi_type_sint, arg_types.ptr);
+			if(res != FFI_OK)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			ffi_call(&cif, FFI_FN(cproc_ptr), &ret, arg_values.ptr);
+			// write c proc name for now
+			mn::print("C CALL: {}.{} @ {}\n", cproc.lib, cproc.name, self.c_procs_address[ix]);
 			break;
 		}
 		case Op_RET:

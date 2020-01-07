@@ -1689,7 +1689,10 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_CALL:
-			vm::push8(self.out, uint8_t(vm::Op_CALL));
+			if(mn::str_prefix(ins.lbl.str, "C."))
+				vm::push8(self.out, uint8_t(vm::Op_C_CALL));
+			else
+				vm::push8(self.out, uint8_t(vm::Op_CALL));
 			vm::pkg_reloc_add(pkg, mn::str_from_c(proc.name.str), self.out.count, mn::str_from_c(ins.lbl.str));
 			vm::push64(self.out, 0);
 			break;

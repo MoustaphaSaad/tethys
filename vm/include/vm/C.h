@@ -41,4 +41,13 @@ namespace vm
 	{
 		c_proc_free(self);
 	}
+
+	VM_EXPORT C_Proc
+	c_proc_clone(const C_Proc& self, mn::Allocator allocator = mn::allocator_top());
+
+	inline static C_Proc
+	clone(const C_Proc& self)
+	{
+		return c_proc_clone(self);
+	}
 }

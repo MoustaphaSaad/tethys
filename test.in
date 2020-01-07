@@ -1,9 +1,13 @@
 constant msg "Hello, World!\0"
 
-proc C.add(i32, i32)
+proc C.puts(u64)
 
 proc main
 	u64.load r0 msg
 	debugstr r0
+
+	u64.sub sp 8
+	u64.write sp r0
+	call C.puts
 	halt
 end
