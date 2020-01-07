@@ -1945,6 +1945,52 @@ namespace as
 		mn::str_null_terminate(str);
 	}
 
+	inline static vm::C_TYPE
+	tkn_to_ctype(const Tkn& tkn)
+	{
+		switch(tkn.kind)
+		{
+		case Tkn::KIND_KEYWORD_I8: return vm::C_TYPE_INT8;
+		case Tkn::KIND_KEYWORD_I16: return vm::C_TYPE_INT16;
+		case Tkn::KIND_KEYWORD_I32: return vm::C_TYPE_INT32;
+		case Tkn::KIND_KEYWORD_I64: return vm::C_TYPE_INT64;
+		case Tkn::KIND_KEYWORD_U8: return vm::C_TYPE_UINT8;
+		case Tkn::KIND_KEYWORD_U16: return vm::C_TYPE_UINT16;
+		case Tkn::KIND_KEYWORD_U32: return vm::C_TYPE_UINT32;
+		case Tkn::KIND_KEYWORD_U64: return vm::C_TYPE_UINT64;
+		default: assert(false && "unreachable"); return vm::C_TYPE_VOID;
+		}
+	}
+
+	inline static void
+	_cproc_gen(C_Proc& self, Src* src, vm::Pkg *pkg)
+	{
+		auto parts = mn::str_split(self.name.str, ".", true);
+
+		auto res = vm::c_proc_new();
+		if(parts.count == 2)
+		{
+			res.lib = clone(parts[0]);
+			res.name = clone(parts[1]);
+		}
+		else if(parts.count == 3)
+		{
+			res.lib = clone(parts[1]);
+			res.name = clone(parts[2]);
+		}
+		else
+		{
+			src_err(src, self.name, mn::strf("unknown C proc name, name should be 'C.library_name.procedure_name'"));
+			return;
+		}
+
+		mn::buf_reserve(res.arg_types, self.args.count);
+		for(auto tkn: self.args)
+			mn::buf_push(res.arg_types, tkn_to_ctype(tkn));
+
+		mn::buf_push(pkg->c_procs, res);
+	}
+
 	// API
 	vm::Pkg
 	src_gen(Src* src)
@@ -1963,6 +2009,15 @@ namespace as
 					src_err(src, decl->proc.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
 				else
 					mn::map_insert(globals, decl->proc.name.str, decl->proc.name);
+				break;
+			}
+
+			case Decl::KIND_C_PROC:
+			{
+				if(auto it = mn::map_lookup(globals, decl->c_proc.name.str))
+					src_err(src, decl->proc.name, mn::strf("symbol redefinition, it was first defined in {}:{}", it->value.pos.line, it->value.pos.col));
+				else
+					mn::map_insert(globals, decl->c_proc.name.str, decl->c_proc.name);
 				break;
 			}
 
@@ -2000,6 +2055,12 @@ namespace as
 
 				auto code = emitter_proc_gen(emitter, decl->proc, pkg);
 				vm::pkg_proc_add(pkg, decl->proc.name.str, code);
+				break;
+			}
+
+			case Decl::KIND_C_PROC:
+			{
+				_cproc_gen(decl->c_proc, src, &pkg);
 				break;
 			}
 

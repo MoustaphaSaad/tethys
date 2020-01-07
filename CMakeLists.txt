@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(external/mn EXCLUDE_FROM_ALL)
 add_subdirectory(external/libffi-3.3 EXCLUDE_FROM_ALL)
+add_subdirectory(ffi)
 add_subdirectory(vm)
 add_subdirectory(as)
 add_subdirectory(tas)

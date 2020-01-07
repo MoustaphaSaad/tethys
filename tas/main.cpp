@@ -55,7 +55,7 @@ args_parse(Args& self, int argc, char** argv)
 	{
 		if(::strcmp(argv[i], "-o") == 0)
 		{
-			if(i + 1 >= argc)
+			if(i + 1 >= size_t(argc))
 			{
 				mn::printerr("you need to specify output name\n");
 				return false;
@@ -260,7 +260,12 @@ main(int argc, char** argv)
 		auto cpu = vm::core_new();
 		mn_defer(vm::core_free(cpu));
 
-		vm::pkg_core_load(pkg, cpu);
+		auto err = vm::pkg_core_load(pkg, cpu);
+		if(err)
+		{
+			mn::printerr("[Error]: {}\n", err);
+			return -1;
+		}
 
 		while (cpu.state == vm::Core::STATE_OK)
 			vm::core_ins_execute(cpu);

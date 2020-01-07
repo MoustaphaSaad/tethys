@@ -3337,4 +3337,154 @@ else
 }
 ```
 
+### Day-18
 
+Today we'll continue our work on c interop by working on the code generation part
+
+first we'll need to add C procs to our vm, this struct basically mirrors what we C_Proc we did in the parser
+```C++
+enum C_TYPE
+{
+	C_TYPE_VOID,
+	C_TYPE_INT8,
+	C_TYPE_INT16,
+	C_TYPE_INT32,
+	C_TYPE_INT64,
+	C_TYPE_UINT8,
+	C_TYPE_UINT16,
+	C_TYPE_UINT32,
+	C_TYPE_UINT64,
+	C_TYPE_FLOAT32,
+	C_TYPE_FLOAT64,
+	C_TYPE_PTR,
+};
+
+struct C_Proc
+{
+	// name of the library that contains the proc
+	mn::Str lib;
+	// name of the proc itself
+	mn::Str name;
+	// argument types
+	mn::Buf<C_TYPE> arg_types;
+};
+```
+
+next we'll need to add the C procs to our package format
+```C++
+struct Pkg
+{
+	mn::Map<mn::Str, mn::Buf<uint8_t>> constants;
+	mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
+	mn::Buf<Reloc> relocs;
+	mn::Buf<Reloc> constant_relocs;
+	// c procedures will be stored here
+	mn::Buf<C_Proc> c_procs;
+};
+```
+
+and of course we'll need to add the loading part
+```C++
+Pkg
+pkg_load(const mn::Str& filename)
+{
+	...
+	// read c procs count
+	len = 0;
+	mn::stream_read(f, mn::block_from(len));
+	mn::buf_reserve(self.c_procs, len);
+
+	// read each c proc
+	for(size_t i = 0; i < len; ++i)
+	{
+		auto proc = c_proc_new();
+		proc.lib = read_string(f);
+		proc.name = read_string(f);
+
+		// read args count
+		uint32_t arg_len = 0;
+		mn::stream_read(f, mn::block_from(arg_len));
+		// read arg_types
+		mn::buf_resize(proc.arg_types, arg_len);
+		mn::stream_read(f, mn::block_from(proc.arg_types));
+
+		mn::buf_push(self.c_procs, proc);
+	}
+	...
+}
+```
+
+and the saving part
+```C++
+void
+pkg_save(const Pkg& self, const mn::Str& filename)
+{
+	...
+	// write c procs count
+	len = uint32_t(self.c_procs.count);
+	mn::stream_write(f, mn::block_from(len));
+
+	// write each proc
+	for(const auto &proc: self.c_procs)
+	{
+		write_string(f, proc.lib);
+		write_string(f, proc.name);
+
+		// write arg_types count
+		len = uint32_t(proc.arg_types.count);
+		mn::stream_write(f, mn::block_from(len));
+		mn::stream_write(f, mn::block_from(proc.arg_types));
+	}
+}
+```
+
+then we just need to map the parser's C_Proc to the vm C_Proc type in the code gen part
+```C++
+inline static vm::C_TYPE
+tkn_to_ctype(const Tkn& tkn)
+{
+	switch(tkn.kind)
+	{
+	case Tkn::KIND_KEYWORD_I8: return vm::C_TYPE_INT8;
+	case Tkn::KIND_KEYWORD_I16: return vm::C_TYPE_INT16;
+	case Tkn::KIND_KEYWORD_I32: return vm::C_TYPE_INT32;
+	case Tkn::KIND_KEYWORD_I64: return vm::C_TYPE_INT64;
+	case Tkn::KIND_KEYWORD_U8: return vm::C_TYPE_UINT8;
+	case Tkn::KIND_KEYWORD_U16: return vm::C_TYPE_UINT16;
+	case Tkn::KIND_KEYWORD_U32: return vm::C_TYPE_UINT32;
+	case Tkn::KIND_KEYWORD_U64: return vm::C_TYPE_UINT64;
+	default: assert(false && "unreachable"); return vm::C_TYPE_VOID;
+	}
+}
+
+inline static void
+_cproc_gen(C_Proc& self, Src* src, vm::Pkg *pkg)
+{
+	auto parts = mn::str_split(self.name.str, ".", true);
+
+	auto res = vm::c_proc_new();
+	if(parts.count == 2)
+	{
+		res.lib = clone(parts[0]);
+		res.name = clone(parts[1]);
+	}
+	else if(parts.count == 3)
+	{
+		res.lib = clone(parts[1]);
+		res.name = clone(parts[2]);
+	}
+	else
+	{
+		src_err(src, self.name, mn::strf("unknown C proc name, name should be 'C.library_name.procedure_name'"));
+		return;
+	}
+
+	mn::buf_reserve(res.arg_types, self.args.count);
+	for(auto tkn: self.args)
+		mn::buf_push(res.arg_types, tkn_to_ctype(tkn));
+
+	mn::buf_push(pkg->c_procs, res);
+}
+```
+
+and that's it for today, next we'll open the library files and load the procs themselves

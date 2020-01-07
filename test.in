@@ -1,7 +1,9 @@
 constant msg "Hello, World!\0"
 
-proc C.add(i32, i32, wrong_id)
+proc C.add(i32, i32)
 
 proc main
-	halt	
+	u64.load r0 msg
+	debugstr r0
+	halt
 end
