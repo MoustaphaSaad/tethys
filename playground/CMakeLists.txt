@@ -27,10 +27,7 @@ if(WIN32)
 		PRIVATE
 			/WX /W4
 	)
-	target_link_libraries(playground
-		PUBLIC
-			libffi
-	)
+	target_link_libraries(playground PUBLIC libffi)
 elseif(UNIX)
 	target_compile_options(playground
 		PRIVATE

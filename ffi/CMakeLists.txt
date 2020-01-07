@@ -24,7 +24,7 @@ if (WIN32)
 	endif ()
 else()
 	enable_language(ASM)
-	message(FATAL_ERROR "you platform is not supported")
+	message(WARNING "you platform is not supported")
 endif()
 
 

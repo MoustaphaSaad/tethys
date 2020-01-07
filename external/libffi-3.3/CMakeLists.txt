@@ -16,5 +16,4 @@ if(WIN32)
 		${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libffi-7.dll
 	)
 	add_dependencies(libffi deploy_libffi)
-elseif(UNIX)
 endif()
