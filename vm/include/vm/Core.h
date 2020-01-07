@@ -2,8 +2,10 @@
 
 #include "vm/Exports.h"
 #include "vm/Reg.h"
+#include "vm/C.h"
 
 #include <mn/Buf.h>
+#include <mn/Library.h>
 
 namespace vm
 {
@@ -31,6 +33,10 @@ namespace vm
 
 		mn::Buf<uint8_t> bytecode;
 		mn::Buf<uint8_t> stack;
+
+		mn::Buf<mn::Library> c_libraries;
+		mn::Buf<void*> c_procs_address;
+		mn::Buf<C_Proc> c_procs_desc;
 	};
 
 	VM_EXPORT Core

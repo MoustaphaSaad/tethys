@@ -171,6 +171,10 @@ namespace vm
 		// RET
 		Op_RET,
 
+		// calls a C function
+		// C_CALL [unsigned 64-bit index into c_proc array in core]
+		Op_C_CALL,
+
 		// TEMPORARY Op
 		// prints a debug string
 		// DEBUGSTR [register = address unsigned 64-bit]

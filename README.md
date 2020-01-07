@@ -3488,3 +3488,230 @@ _cproc_gen(C_Proc& self, Src* src, vm::Pkg *pkg)
 ```
 
 and that's it for today, next we'll open the library files and load the procs themselves
+
+### Day-19
+Today is the big day, we'll call our first C function which is the `puts` function to print a hello world string
+
+today we'll be able to execute this code
+```asm
+constant msg "Hello, World!\0"
+
+; declare the c function, for now we put u64 instead of a pointer type
+proc C.puts(u64)
+
+proc main
+	; load the msg pointer to r0 register
+	u64.load r0 msg
+	; allocate 8 bytes on the stack
+	u64.sub sp 8
+	; write the pointer to the stack
+	u64.write sp r0
+	; perform the c call
+	call C.puts
+	halt
+end
+```
+and it works, folks it will print `Hello, World!`
+
+first we'll need to add a new opcode for C function call
+```C++
+...
+// calls a C function
+// C_CALL [unsigned 64-bit index into c_proc array in core]
+Op_C_CALL,
+...
+```
+
+then we'll add a list of opened libraries, c procedure pointers, and c procedure descriptions
+```C++
+struct Core
+{
+	...
+	// an array of opened C libraries
+	mn::Buf<mn::Library> c_libraries;
+	// and array containing the loaded proc pointers
+	mn::Buf<void*> c_procs_address;
+	// an array describing each C procedure
+	mn::Buf<C_Proc> c_procs_desc;
+};
+```
+
+then we'll need to implement the opcode
+```C++
+case Op_C_CALL:
+{
+	// load c proc index
+	auto ix = pop64(self.bytecode, self.r[Reg_IP].u64);
+	if(ix >= self.c_procs_desc.count)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	// load the desc and proc ptr
+	auto& cproc = self.c_procs_desc[ix];
+	auto cproc_ptr= self.c_procs_address[ix];
+
+	// prepare the ffi cif object
+	ffi_cif cif;
+	auto arg_types = mn::buf_with_count<ffi_type*>(cproc.arg_types.count);
+	auto arg_values = mn::buf_with_count<void*>(cproc.arg_types.count);
+	mn_defer({
+		mn::buf_free(arg_types);
+		mn::buf_free(arg_values);
+	});
+
+	// prepare all the argument types
+	char* it = (char*)self.r[Reg_SP].ptr;
+	for(size_t i = 0; i < cproc.arg_types.count; ++i)
+	{
+		if(cproc.arg_types[i] == C_TYPE_INT8)
+		{
+			// check if the stack space is valid
+			if(valid_next_bytes(self, it, 1) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			// fill the type
+			arg_types[i] = &ffi_type_sint8;
+			// fill the pointer to this argument from the stack
+			arg_values[i] = it;
+			// move the stack pointer
+			it += 1;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_INT16)
+		{
+			if(valid_next_bytes(self, it, 2) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_sint16;
+			arg_values[i] = it;
+			it += 2;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_INT32)
+		{
+			if(valid_next_bytes(self, it, 4) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_sint32;
+			arg_values[i] = it;
+			it += 4;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_INT64)
+		{
+			if(valid_next_bytes(self, it, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_sint64;
+			arg_values[i] = it;
+			it += 8;
+		}
+		if(cproc.arg_types[i] == C_TYPE_UINT8)
+		{
+			if(valid_next_bytes(self, it, 1) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_uint8;
+			arg_values[i] = it;
+			it += 1;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_UINT16)
+		{
+			if(valid_next_bytes(self, it, 2) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_uint16;
+			arg_values[i] = it;
+			it += 2;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_UINT32)
+		{
+			if(valid_next_bytes(self, it, 4) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_uint32;
+			arg_values[i] = it;
+			it += 4;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_UINT64)
+		{
+			if(valid_next_bytes(self, it, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_uint64;
+			arg_values[i] = it;
+			it += 8;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_FLOAT32)
+		{
+			if(valid_next_bytes(self, it, 4) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_float;
+			arg_values[i] = it;
+			it += 4;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_FLOAT64)
+		{
+			if(valid_next_bytes(self, it, 8) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_double;
+			arg_values[i] = it;
+			it += 8;
+		}
+		else if(cproc.arg_types[i] == C_TYPE_PTR)
+		{
+			if(valid_next_bytes(self, it, sizeof(void*)) == false)
+			{
+				self.state = Core::STATE_ERR;
+				break;
+			}
+			arg_types[i] = &ffi_type_pointer;
+			arg_values[i] = it;
+			it += sizeof(void*);
+		}
+	}
+	// for now every function returns an int
+	ffi_arg ret;
+	auto res = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, uint32_t(cproc.arg_types.count), &ffi_type_sint, arg_types.ptr);
+	if(res != FFI_OK)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	// execute the call
+	ffi_call(&cif, FFI_FN(cproc_ptr), &ret, arg_values.ptr);
+	// write c proc name for now
+	mn::print("C CALL: {}.{} @ {}\n", cproc.lib, cproc.name, self.c_procs_address[ix]);
+	break;
+}
+```
+
+now that everything in place, we'll add the final thing which is actually generating this opcode in the assembler
+```C++
+case Tkn::KIND_KEYWORD_CALL:
+// if the proc is from C package, then generate the C Call opcode otherwise do a normal call
+if(mn::str_prefix(ins.lbl.str, "C."))
+	vm::push8(self.out, uint8_t(vm::Op_C_CALL));
+else
+	vm::push8(self.out, uint8_t(vm::Op_CALL));
+```

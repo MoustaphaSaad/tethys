@@ -42,10 +42,17 @@ if(WIN32)
 		PRIVATE
 			/WX /W4
 	)
+	target_link_libraries(vm PUBLIC libffi)
 elseif(UNIX)
 	target_compile_options(vm
 		PRIVATE
 			-Wall -Werror
+	)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(libffi REQUIRED IMPORTED_TARGET libffi)
+	target_link_libraries(vm
+		PUBLIC
+			PkgConfig::libffi
 	)
 endif()
 
