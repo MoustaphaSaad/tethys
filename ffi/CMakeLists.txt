@@ -43,19 +43,6 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_FILES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${ASM_FILES})
 
 
-# Windows specfic flags to enable W variations of winapi
-if(WIN32)
-	target_compile_options(ffi
-		PRIVATE
-			/WX /W4
-	)
-elseif(UNIX)
-	target_compile_options(ffi
-		PRIVATE
-			-Wall -Werror
-	)
-endif()
-
 # enable C++17
 # disable any compiler specifc extensions
 # add d suffix in debug mode
