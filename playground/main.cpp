@@ -11,8 +11,6 @@ extern "C" int myadd(int a, int b)
 int
 main(int, char**)
 {
-	foo();
-
 	auto l = mn::library_open("");
 	auto f = mn::library_proc(l, "myadd");
 	mn::print("{}, {}\n", l, f);

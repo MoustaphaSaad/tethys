@@ -11,8 +11,6 @@
 extern "C" {
 #endif
 
-extern void foo(void);
-
 enum FFI_TYPE_KIND
 {
 	FFI_TYPE_KIND_VOID,
