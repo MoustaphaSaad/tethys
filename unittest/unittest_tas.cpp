@@ -226,7 +226,7 @@ TEST_CASE("scan: c proc")
 	auto answer = scan_str(R"""(
 	constant msg "Hello, World!\0"
 
-	proc C.add(i32, i32)
+	proc C.add(C.int32, C.int32)
 
 	proc main
 		halt
@@ -240,10 +240,10 @@ line: 2, col: 15, kind: "<STRING>" str: "Hello, World!\0"
 line: 4, col: 2, kind: "PROC" str: "proc"
 line: 4, col: 7, kind: "<ID>" str: "C.add"
 line: 4, col: 12, kind: "(" str: "("
-line: 4, col: 13, kind: "i32" str: "i32"
-line: 4, col: 16, kind: "," str: ","
-line: 4, col: 18, kind: "i32" str: "i32"
-line: 4, col: 21, kind: ")" str: ")"
+line: 4, col: 13, kind: "C.int32" str: "C.int32"
+line: 4, col: 20, kind: "," str: ","
+line: 4, col: 22, kind: "C.int32" str: "C.int32"
+line: 4, col: 29, kind: ")" str: ")"
 line: 6, col: 2, kind: "PROC" str: "proc"
 line: 6, col: 7, kind: "<ID>" str: "main"
 line: 7, col: 3, kind: "HALT" str: "halt"
@@ -274,7 +274,7 @@ TEST_CASE("parse: c proc")
 	auto answer = parse_str(R"""(
 	constant msg "Hello, World!\0"
 
-	proc C.add(i32, i32)
+	proc C.add(C.int32, C.int32)
 
 	proc main
 		halt
@@ -283,7 +283,7 @@ TEST_CASE("parse: c proc")
 
 	const char* expected =R"""(
 constant msg "Hello, World!\0"
-proc C.add(i32, i32)
+proc C.add(C.int32, C.int32)
 PROC main
   halt
 END
@@ -297,7 +297,7 @@ TEST_CASE("parse: c proc extra comma")
 	auto answer = parse_str(R"""(
 	constant msg "Hello, World!\0"
 
-	proc C.add(i32, i32,)
+	proc C.add(C.int32, C.int32,)
 
 	proc main
 		halt
@@ -306,7 +306,7 @@ TEST_CASE("parse: c proc extra comma")
 
 	const char* expected =R"""(
 constant msg "Hello, World!\0"
-proc C.add(i32, i32)
+proc C.add(C.int32, C.int32)
 PROC main
   halt
 END
@@ -320,7 +320,7 @@ TEST_CASE("parse: c proc wrong id")
 	auto answer = parse_str(R"""(
 	constant msg "Hello, World!\0"
 
-	proc C.add(i32, i32, wrong)
+	proc C.add(C.int32, C.int32, wrong)
 
 	proc main
 		halt
@@ -328,9 +328,9 @@ TEST_CASE("parse: c proc wrong id")
 	)""");
 
 	const char* expected =R"""(
->> 	proc C.add(i32, i32, wrong)
->> 	                     ^^^^^ 
-Error[<STRING>:4:23]: expected a type token
+>> 	proc C.add(C.int32, C.int32, wrong)
+>> 	                             ^^^^^ 
+Error[<STRING>:4:31]: expected a type token
 )""";
 
 	CHECK(answer == expected);

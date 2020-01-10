@@ -218,22 +218,30 @@ namespace as
 	}
 
 	inline static bool
-	case_insensitive_cmp(const char* a, const char* b)
+	is_same_keyword(const char* a, const char* b, bool case_insensitive)
 	{
 		auto a_count = mn::rune_count(a);
 		auto b_count = mn::rune_count(b);
 		if(a_count != b_count)
 			return false;
-		for(size_t i = 0; i < a_count; ++i)
+
+		if(case_insensitive)
 		{
-			if(mn::rune_lower(mn::rune_read(a)) != mn::rune_lower(mn::rune_read(b)))
+			for(size_t i = 0; i < a_count; ++i)
 			{
-				return false;
+				if(mn::rune_lower(mn::rune_read(a)) != mn::rune_lower(mn::rune_read(b)))
+				{
+					return false;
+				}
+				a = mn::rune_next(a);
+				b = mn::rune_next(b);
 			}
-			a = mn::rune_next(a);
-			b = mn::rune_next(b);
+			return true;
 		}
-		return true;
+		else
+		{
+			return ::strcmp(a, b) == 0;
+		}
 	}
 
 	inline static const char*
@@ -302,7 +310,7 @@ namespace as
 				i < size_t(Tkn::KIND_KEYWORDS__END);
 				++i)
 			{
-				if(case_insensitive_cmp(tkn.str, Tkn::NAMES[i]))
+				if(is_same_keyword(tkn.str, Tkn::NAMES[i], !is_ctype(Tkn::KIND(i))))
 				{
 					tkn.kind = Tkn::KIND(i);
 					break;

@@ -110,7 +110,7 @@ namespace as
 	parser_reg(Parser* self)
 	{
 		auto op = parser_look(self);
-		if (is_reg(op))
+		if (is_reg(op.kind))
 		{
 			return parser_eat(self);
 		}
@@ -136,230 +136,61 @@ namespace as
 		return Tkn{};
 	}
 
-	inline static bool
-	is_load(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_I8_LOAD ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_LOAD ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_LOAD ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_LOAD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_LOAD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_LOAD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_LOAD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_LOAD);
-	}
-
-	inline static bool
-	is_arithmetic(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_I8_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_ADD ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_SUB ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_MUL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_DIV ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_DIV ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_DIV ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_DIV ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_DIV ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_DIV ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_DIV ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_DIV);
-	}
-
-	inline static bool
-	is_cond_jump(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_I8_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_JGE);
-	}
-
-	inline static bool
-	is_mem_transfer(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_I8_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_READ ||
-				tkn.kind == Tkn::KIND_KEYWORD_I8_WRITE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_WRITE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_WRITE ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_WRITE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_WRITE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_WRITE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_WRITE ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_WRITE);
-	}
-
-	inline static bool
-	is_push_pop(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_PUSH ||
-				tkn.kind == Tkn::KIND_KEYWORD_POP);
-	}
-
-	inline static bool
-	is_cmp(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_I8_CMP ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16_CMP ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32_CMP ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64_CMP ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8_CMP ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16_CMP ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32_CMP ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64_CMP);
-	}
-
-	inline static bool
-	is_pure_jump(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_JE ||
-				tkn.kind == Tkn::KIND_KEYWORD_JNE ||
-				tkn.kind == Tkn::KIND_KEYWORD_JL ||
-				tkn.kind == Tkn::KIND_KEYWORD_JLE ||
-				tkn.kind == Tkn::KIND_KEYWORD_JG ||
-				tkn.kind == Tkn::KIND_KEYWORD_JGE ||
-				tkn.kind == Tkn::KIND_KEYWORD_JMP);
-	}
-
-	inline static bool
-	is_type(const Tkn& tkn)
-	{
-		return (tkn.kind == Tkn::KIND_KEYWORD_I8  ||
-				tkn.kind == Tkn::KIND_KEYWORD_I16 ||
-				tkn.kind == Tkn::KIND_KEYWORD_I32 ||
-				tkn.kind == Tkn::KIND_KEYWORD_I64 ||
-				tkn.kind == Tkn::KIND_KEYWORD_U8  ||
-				tkn.kind == Tkn::KIND_KEYWORD_U16 ||
-				tkn.kind == Tkn::KIND_KEYWORD_U32 ||
-				tkn.kind == Tkn::KIND_KEYWORD_U64);
-	}
-
 	inline static Ins
 	parser_ins(Parser* self)
 	{
 		Ins ins{};
 
 		Tkn op = parser_look(self);
-		if (is_load(op))
+		if (is_load(op.kind))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			ins.src = parser_imm(self, op.kind == Tkn::KIND_KEYWORD_U64_LOAD || op.kind == Tkn::KIND_KEYWORD_I64_LOAD);
 		}
-		else if (is_arithmetic(op))
+		else if (is_arithmetic(op.kind))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			auto src = parser_look(self);
-			if (src.kind == Tkn::KIND_INTEGER || is_reg(src))
+			if (src.kind == Tkn::KIND_INTEGER || is_reg(src.kind))
 				ins.src = parser_eat(self);
 			else
 				src_err(self->src, src, mn::strf("expected an integer or a register"));
 		}
-		else if (is_cond_jump(op))
+		else if (is_cond_jump(op.kind))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			auto src = parser_look(self);
-			if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
+			if(src.kind == Tkn::KIND_INTEGER || is_reg(src.kind))
 				ins.src = parser_eat(self);
 			else
 				src_err(self->src, src, mn::strf("expected an integer or a register"));
 			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
 		}
-		else if(is_mem_transfer(op))
+		else if(is_mem_transfer(op.kind))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			ins.src = parser_reg(self);
 		}
-		else if(is_push_pop(op))
+		else if(is_push_pop(op.kind))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 		}
-		else if (is_pure_jump(op))
+		else if (is_pure_jump(op.kind))
 		{
 			ins.op = parser_eat(self);
 			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
 		}
-		else if(is_cmp(op))
+		else if(is_cmp(op.kind))
 		{
 			ins.op = parser_eat(self);
 			ins.dst = parser_reg(self);
 			auto src = parser_look(self);
-			if(src.kind == Tkn::KIND_INTEGER || is_reg(src))
+			if(src.kind == Tkn::KIND_INTEGER || is_reg(src.kind))
 				ins.src = parser_eat(self);
 			else
 				src_err(self->src, src, mn::strf("expected an integer or a register"));
@@ -424,7 +255,7 @@ namespace as
 		while(parser_look_kind(self, Tkn::KIND_CLOSE_PAREN) == false)
 		{
 			auto tkn = parser_look(self);
-			if (is_type(tkn))
+			if (is_ctype(tkn.kind))
 				mn::buf_push(proc.args, parser_eat(self));
 			else
 				src_err(self->src, parser_eat(self), mn::strf("expected a type token"));
@@ -450,28 +281,28 @@ namespace as
 		mn::print_to(out, "PROC {}\n", proc->name.str);
 		for(const auto& ins: proc->ins)
 		{
-			if (is_load(ins.op) ||
-				is_arithmetic(ins.op))
+			if (is_load(ins.op.kind) ||
+				is_arithmetic(ins.op.kind))
 			{
 				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
 			}
-			else if(is_cond_jump(ins.op))
+			else if(is_cond_jump(ins.op.kind))
 			{
 				mn::print_to(out, "  {} {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str, ins.lbl.str);
 			}
-			else if(is_mem_transfer(ins.op))
+			else if(is_mem_transfer(ins.op.kind))
 			{
 				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
 			}
-			else if(is_push_pop(ins.op))
+			else if(is_push_pop(ins.op.kind))
 			{
 				mn::print_to(out, "  {} {}\n", ins.op.str, ins.dst.str);
 			}
-			else if(is_pure_jump(ins.op))
+			else if(is_pure_jump(ins.op.kind))
 			{
 				mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
 			}
-			else if(is_cmp(ins.op))
+			else if(is_cmp(ins.op.kind))
 			{
 				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
 			}
