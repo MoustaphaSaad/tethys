@@ -53,6 +53,7 @@ namespace as
 	{
 		Tkn name;
 		mn::Buf<Tkn> args;
+		Tkn ret;
 	};
 
 	inline static C_Proc

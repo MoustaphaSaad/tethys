@@ -254,14 +254,21 @@ namespace as
 		parser_eat_must(self, Tkn::KIND_OPEN_PAREN);
 		while(parser_look_kind(self, Tkn::KIND_CLOSE_PAREN) == false)
 		{
-			auto tkn = parser_look(self);
+			auto tkn = parser_eat(self);
 			if (is_ctype(tkn.kind))
-				mn::buf_push(proc.args, parser_eat(self));
+				mn::buf_push(proc.args, tkn);
 			else
-				src_err(self->src, parser_eat(self), mn::strf("expected a type token"));
+				src_err(self->src, tkn, mn::strf("expected a type token"));
 			parser_eat_kind(self, Tkn::KIND_COMMA);
 		}
 		parser_eat_must(self, Tkn::KIND_CLOSE_PAREN);
+
+		auto tkn = parser_eat(self);
+		if(is_ctype(tkn.kind))
+			proc.ret = tkn;
+		else
+			src_err(self->src, proc.name, mn::strf("expected a return type for C proc, but found '{}'", tkn.str));
+
 		return proc;
 	}
 

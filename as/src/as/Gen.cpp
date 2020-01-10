@@ -1995,6 +1995,8 @@ namespace as
 		for(auto tkn: self.args)
 			mn::buf_push(res.arg_types, tkn_to_ctype(tkn));
 
+		res.ret = tkn_to_ctype(self.ret);
+
 		mn::buf_push(pkg->c_procs, res);
 	}
 

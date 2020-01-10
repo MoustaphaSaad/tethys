@@ -203,11 +203,14 @@ namespace vm
 		{
 			write_string(f, proc.lib);
 			write_string(f, proc.name);
-			
+
 			// write arg_types count
 			len = uint32_t(proc.arg_types.count);
 			mn::stream_write(f, mn::block_from(len));
 			mn::stream_write(f, mn::block_from(proc.arg_types));
+
+			// write return type
+			mn::stream_write(f, mn::block_from(proc.ret));
 		}
 	}
 
@@ -294,6 +297,9 @@ namespace vm
 			// read arg_types
 			mn::buf_resize(proc.arg_types, arg_len);
 			mn::stream_read(f, mn::block_from(proc.arg_types));
+
+			// read return type
+			mn::stream_read(f, mn::block_from(proc.ret));
 
 			mn::buf_push(self.c_procs, proc);
 		}
