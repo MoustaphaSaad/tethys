@@ -7,7 +7,7 @@
 
 namespace vm
 {
-	enum C_TYPE
+	enum C_TYPE: int32_t
 	{
 		C_TYPE_VOID,
 		C_TYPE_INT8,
@@ -28,6 +28,7 @@ namespace vm
 		mn::Str lib;
 		mn::Str name;
 		mn::Buf<C_TYPE> arg_types;
+		C_TYPE ret;
 	};
 
 	VM_EXPORT C_Proc

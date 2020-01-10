@@ -288,7 +288,7 @@ namespace as
 
 
 		case Tkn::KIND_KEYWORD_I8_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD8));
 				emitter_reg_gen(self, ins.dst);
@@ -303,7 +303,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD8));
 				emitter_reg_gen(self, ins.dst);
@@ -318,7 +318,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD16));
 				emitter_reg_gen(self, ins.dst);
@@ -333,7 +333,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD16));
 				emitter_reg_gen(self, ins.dst);
@@ -348,7 +348,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD32));
 				emitter_reg_gen(self, ins.dst);
@@ -363,7 +363,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD32));
 				emitter_reg_gen(self, ins.dst);
@@ -378,7 +378,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD64));
 				emitter_reg_gen(self, ins.dst);
@@ -393,7 +393,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_ADD:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ADD64));
 				emitter_reg_gen(self, ins.dst);
@@ -409,7 +409,7 @@ namespace as
 
 
 		case Tkn::KIND_KEYWORD_I8_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB8));
 				emitter_reg_gen(self, ins.dst);
@@ -424,7 +424,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB8));
 				emitter_reg_gen(self, ins.dst);
@@ -439,7 +439,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB16));
 				emitter_reg_gen(self, ins.dst);
@@ -454,7 +454,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB16));
 				emitter_reg_gen(self, ins.dst);
@@ -469,7 +469,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB32));
 				emitter_reg_gen(self, ins.dst);
@@ -484,7 +484,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB32));
 				emitter_reg_gen(self, ins.dst);
@@ -499,7 +499,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB64));
 				emitter_reg_gen(self, ins.dst);
@@ -514,7 +514,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_SUB:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_SUB64));
 				emitter_reg_gen(self, ins.dst);
@@ -530,7 +530,7 @@ namespace as
 
 
 		case Tkn::KIND_KEYWORD_I8_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IMUL8));
 				emitter_reg_gen(self, ins.dst);
@@ -545,7 +545,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_MUL8));
 				emitter_reg_gen(self, ins.dst);
@@ -560,7 +560,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IMUL16));
 				emitter_reg_gen(self, ins.dst);
@@ -575,7 +575,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_MUL16));
 				emitter_reg_gen(self, ins.dst);
@@ -590,7 +590,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IMUL32));
 				emitter_reg_gen(self, ins.dst);
@@ -605,7 +605,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_MUL32));
 				emitter_reg_gen(self, ins.dst);
@@ -620,7 +620,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IMUL64));
 				emitter_reg_gen(self, ins.dst);
@@ -635,7 +635,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_MUL:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_MUL64));
 				emitter_reg_gen(self, ins.dst);
@@ -651,7 +651,7 @@ namespace as
 
 
 		case Tkn::KIND_KEYWORD_I8_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IDIV8));
 				emitter_reg_gen(self, ins.dst);
@@ -666,7 +666,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_DIV8));
 				emitter_reg_gen(self, ins.dst);
@@ -681,7 +681,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IDIV16));
 				emitter_reg_gen(self, ins.dst);
@@ -696,7 +696,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_DIV16));
 				emitter_reg_gen(self, ins.dst);
@@ -711,7 +711,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IDIV32));
 				emitter_reg_gen(self, ins.dst);
@@ -726,7 +726,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_DIV32));
 				emitter_reg_gen(self, ins.dst);
@@ -741,7 +741,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_IDIV64));
 				emitter_reg_gen(self, ins.dst);
@@ -756,7 +756,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_DIV:
-			if (is_reg(ins.src))
+			if (is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_DIV64));
 				emitter_reg_gen(self, ins.dst);
@@ -772,7 +772,7 @@ namespace as
 
 
 		case Tkn::KIND_KEYWORD_I8_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -789,7 +789,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -806,7 +806,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -823,7 +823,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -840,7 +840,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -857,7 +857,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -874,7 +874,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -891,7 +891,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_JE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -908,7 +908,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I8_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -925,7 +925,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -942,7 +942,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -959,7 +959,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -976,7 +976,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -993,7 +993,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1010,7 +1010,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1027,7 +1027,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_JNE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -1044,7 +1044,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I8_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1061,7 +1061,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1078,7 +1078,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1095,7 +1095,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1112,7 +1112,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1129,7 +1129,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1146,7 +1146,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1163,7 +1163,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_JL:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -1180,7 +1180,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I8_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1197,7 +1197,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1214,7 +1214,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1231,7 +1231,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1248,7 +1248,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1265,7 +1265,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1282,7 +1282,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1299,7 +1299,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_JLE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -1316,7 +1316,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I8_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1333,7 +1333,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1350,7 +1350,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1367,7 +1367,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1384,7 +1384,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1401,7 +1401,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1418,7 +1418,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1435,7 +1435,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_JG:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -1452,7 +1452,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I8_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1469,7 +1469,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1486,7 +1486,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1503,7 +1503,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1520,7 +1520,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1537,7 +1537,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1554,7 +1554,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1571,7 +1571,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_JGE:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -1702,7 +1702,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I8_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1717,7 +1717,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I16_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1732,7 +1732,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I32_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1747,7 +1747,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_I64_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_ICMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -1762,7 +1762,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U8_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP8));
 				emitter_reg_gen(self, ins.dst);
@@ -1777,7 +1777,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U16_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP16));
 				emitter_reg_gen(self, ins.dst);
@@ -1792,7 +1792,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U32_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP32));
 				emitter_reg_gen(self, ins.dst);
@@ -1807,7 +1807,7 @@ namespace as
 			break;
 
 		case Tkn::KIND_KEYWORD_U64_CMP:
-			if(is_reg(ins.src))
+			if(is_reg(ins.src.kind))
 			{
 				vm::push8(self.out, uint8_t(vm::Op_CMP64));
 				emitter_reg_gen(self, ins.dst);
@@ -1953,14 +1953,18 @@ namespace as
 	{
 		switch(tkn.kind)
 		{
-		case Tkn::KIND_KEYWORD_I8: return vm::C_TYPE_INT8;
-		case Tkn::KIND_KEYWORD_I16: return vm::C_TYPE_INT16;
-		case Tkn::KIND_KEYWORD_I32: return vm::C_TYPE_INT32;
-		case Tkn::KIND_KEYWORD_I64: return vm::C_TYPE_INT64;
-		case Tkn::KIND_KEYWORD_U8: return vm::C_TYPE_UINT8;
-		case Tkn::KIND_KEYWORD_U16: return vm::C_TYPE_UINT16;
-		case Tkn::KIND_KEYWORD_U32: return vm::C_TYPE_UINT32;
-		case Tkn::KIND_KEYWORD_U64: return vm::C_TYPE_UINT64;
+		case Tkn::KIND_KEYWORD_CINT8: return vm::C_TYPE_INT8;
+		case Tkn::KIND_KEYWORD_CINT16: return vm::C_TYPE_INT16;
+		case Tkn::KIND_KEYWORD_CINT32: return vm::C_TYPE_INT32;
+		case Tkn::KIND_KEYWORD_CINT64: return vm::C_TYPE_INT64;
+		case Tkn::KIND_KEYWORD_CUINT8: return vm::C_TYPE_UINT8;
+		case Tkn::KIND_KEYWORD_CUINT16: return vm::C_TYPE_UINT16;
+		case Tkn::KIND_KEYWORD_CUINT32: return vm::C_TYPE_UINT32;
+		case Tkn::KIND_KEYWORD_CUINT64: return vm::C_TYPE_UINT64;
+		case Tkn::KIND_KEYWORD_CFLOAT32: return vm::C_TYPE_FLOAT32;
+		case Tkn::KIND_KEYWORD_CFLOAT64: return vm::C_TYPE_FLOAT64;
+		case Tkn::KIND_KEYWORD_CPTR: return vm::C_TYPE_PTR;
+		case Tkn::KIND_KEYWORD_VOID: return vm::C_TYPE_VOID;
 		default: assert(false && "unreachable"); return vm::C_TYPE_VOID;
 		}
 	}
@@ -1990,6 +1994,8 @@ namespace as
 		mn::buf_reserve(res.arg_types, self.args.count);
 		for(auto tkn: self.args)
 			mn::buf_push(res.arg_types, tkn_to_ctype(tkn));
+
+		res.ret = tkn_to_ctype(self.ret);
 
 		mn::buf_push(pkg->c_procs, res);
 	}

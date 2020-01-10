@@ -3715,3 +3715,230 @@ if(mn::str_prefix(ins.lbl.str, "C."))
 else
 	vm::push8(self.out, uint8_t(vm::Op_CALL));
 ```
+
+### Day-20
+Today we we'll solidify the C type system by introducing a more C like types, and we'll add return types to c procs
+
+now our code reflects the actual C function
+```asm
+constant msg "Hello, World!\0"
+
+proc C.puts(C.ptr) C.int32
+
+proc main
+	u64.load r0 msg
+	debugstr r0
+
+	; write the argument
+	u64.sub sp 8
+	u64.write sp r0
+
+	u64.sub sp 4; allocate space for return value
+	call C.puts; perform the call
+	halt
+end
+```
+
+first of all let's fix the C types, by changing the old types to these new set of types
+```C++
+TOKEN(KEYWORD_VOID, "C.void"), \
+TOKEN(KEYWORD_CINT8,  "C.int8"), \
+TOKEN(KEYWORD_CINT16, "C.int16"), \
+TOKEN(KEYWORD_CINT32, "C.int32"), \
+TOKEN(KEYWORD_CINT64, "C.int64"), \
+TOKEN(KEYWORD_CUINT8,  "C.uint8"), \
+TOKEN(KEYWORD_CUINT16, "C.uint16"), \
+TOKEN(KEYWORD_CUINT32, "C.uint32"), \
+TOKEN(KEYWORD_CUINT64, "C.uint64"), \
+TOKEN(KEYWORD_CFLOAT32, "C.float32"), \
+TOKEN(KEYWORD_CFLOAT64, "C.float64"), \
+TOKEN(KEYWORD_CPTR, "C.ptr"), \
+```
+
+we have added these types as keywords but we'll want scanning to make them case sensitive so we'll change the checking code in our scanner, we'll change the `case_insensitive_cmp` to `is_same_keyword`
+```C++
+inline static bool
+is_same_keyword(const char* a, const char* b, bool case_insensitive)
+{
+	auto a_count = mn::rune_count(a);
+	auto b_count = mn::rune_count(b);
+	if(a_count != b_count)
+		return false;
+
+	if(case_insensitive)
+	{
+		for(size_t i = 0; i < a_count; ++i)
+		{
+			if(mn::rune_lower(mn::rune_read(a)) != mn::rune_lower(mn::rune_read(b)))
+			{
+				return false;
+			}
+			a = mn::rune_next(a);
+			b = mn::rune_next(b);
+		}
+		return true;
+	}
+	else
+	{
+		return ::strcmp(a, b) == 0;
+	}
+}
+```
+
+and we'll change the usage to be
+```C++
+//let's loop over all the keywords and check them
+for(size_t i = size_t(Tkn::KIND_KEYWORDS__BEGIN + 1);
+	i < size_t(Tkn::KIND_KEYWORDS__END);
+	++i)
+{
+	if(is_same_keyword(tkn.str, Tkn::NAMES[i], !is_ctype(Tkn::KIND(i))))
+	{
+		tkn.kind = Tkn::KIND(i);
+		break;
+	}
+}
+```
+
+then we'll add the return type assembler's c proc
+```C++
+struct C_Proc
+{
+	Tkn name;
+	mn::Buf<Tkn> args;
+	Tkn ret;
+};
+```
+
+then we'll do the actual return type parsing
+```C++
+auto tkn = parser_eat(self);
+if(is_ctype(tkn.kind))
+	proc.ret = tkn;
+else
+	src_err(self->src, proc.name, mn::strf("expected a return type for C proc, but found '{}'", tkn.str));
+```
+
+then we'll need to add the return type to our vm c proc
+```C++
+struct C_Proc
+{
+	mn::Str lib;
+	mn::Str name;
+	mn::Buf<C_TYPE> arg_types;
+	C_TYPE ret;
+};
+```
+
+and we'll need to add its load and save code, let's start by adding the save part
+```C++
+// write each proc
+for(const auto &proc: self.c_procs)
+{
+	...
+	// write return type
+	mn::stream_write(f, mn::block_from(proc.ret));
+}
+```
+
+then the load part
+```C++
+// read each c proc
+for(size_t i = 0; i < len; ++i)
+{
+	...
+	// read return type
+	mn::stream_read(f, mn::block_from(proc.ret));
+
+	mn::buf_push(self.c_procs, proc);
+}
+```
+
+now, let's add the return type our code generation part
+```C++
+inline static void
+_cproc_gen(C_Proc& self, Src* src, vm::Pkg *pkg)
+{
+	...
+
+	// generate arguments
+	mn::buf_reserve(res.arg_types, self.args.count);
+	for(auto tkn: self.args)
+		mn::buf_push(res.arg_types, tkn_to_ctype(tkn));
+
+	// generate return type
+	res.ret = tkn_to_ctype(self.ret);
+	...
+}
+```
+
+all that's left now is to use the new information in the `C_CALL` op code
+```C++
+case Op_C_CALL:
+{
+	// load c proc index
+	auto ix = pop64(self.bytecode, self.r[Reg_IP].u64);
+	if(ix >= self.c_procs_desc.count)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	auto& cproc = self.c_procs_desc[ix];
+	auto cproc_ptr= self.c_procs_address[ix];
+	
+	// ffi context
+	ffi_cif cif;
+	auto arg_types = mn::buf_with_count<ffi_type*>(cproc.arg_types.count);
+	auto arg_values = mn::buf_with_count<void*>(cproc.arg_types.count);
+	auto ret_type = ffi_type_from_c(cproc.ret);
+	ffi_arg ret_value;
+	mn_defer({
+		mn::buf_free(arg_types);
+		mn::buf_free(arg_values);
+	});
+
+	// load stack pointer
+	char* it = (char*)self.r[Reg_SP].ptr;
+
+	// get return value address from the stack
+	if(valid_next_bytes(self, it, ret_type->size) == false)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	it += ret_type->size;
+
+	// get args from the stack
+	for(size_t i = 0; i < cproc.arg_types.count; ++i)
+	{
+		auto ffi_arg_type = ffi_type_from_c(cproc.arg_types[i]);
+		if(valid_next_bytes(self, it, ffi_arg_type->size) == false)
+		{
+			self.state = Core::STATE_ERR;
+			break;
+		}
+		arg_types[i] = ffi_arg_type;
+		arg_values[i] = it;
+		it += ffi_arg_type->size;
+	}
+
+	// exit if there's an error
+	if (self.state == Core::STATE_ERR)
+		break;
+
+	// prepare for ffi call
+	auto res = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, uint32_t(cproc.arg_types.count), ret_type, arg_types.ptr);
+	if(res != FFI_OK)
+	{
+		self.state = Core::STATE_ERR;
+		break;
+	}
+	// do the actual call
+	ffi_call(&cif, FFI_FN(cproc_ptr), &ret_value, arg_values.ptr);
+	// write c proc name for now
+	mn::print("C CALL: {}.{} @ {}\n", cproc.lib, cproc.name, self.c_procs_address[ix]);
+	break;
+}
+```
+
+and that's it for today

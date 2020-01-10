@@ -10,6 +10,7 @@ namespace vm
 		self.lib = mn::str_new();
 		self.name = mn::str_new();
 		self.arg_types = mn::buf_new<C_TYPE>();
+		self.ret = C_TYPE_VOID;
 		return self;
 	}
 
@@ -28,6 +29,7 @@ namespace vm
 		self.lib = mn::str_clone(other.lib, allocator);
 		self.name = mn::str_clone(other.name, allocator);
 		self.arg_types = mn::buf_clone(other.arg_types, allocator);
+		self.ret = other.ret;
 		return self;
 	}
 }
