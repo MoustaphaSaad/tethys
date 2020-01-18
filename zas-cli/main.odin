@@ -3,6 +3,7 @@ package main
 import "core:fmt"
 import "core:os"
 import "../amon"
+import "../zas"
 
 HELP_MSG :: `zas zay assembler
 tas [command] [targets] [flags]
@@ -52,8 +53,8 @@ args_parse :: proc(self: ^Args) -> bool {
 }
 
 main :: proc() {
-	context.allocator = amon.fast_leak_allocator();
-	defer assert(amon.fast_leak_detect());
+	// context.allocator = amon.loc_leak_allocator();
+	// defer assert(amon.loc_leak_detect());
 
 	args: Args;
 	if args_parse(&args) == false {
@@ -62,5 +63,26 @@ main :: proc() {
 	}
 	defer args_delete(&args);
 
-	fmt.println(args);
+	exit_code := 0;
+
+	switch args.cmd {
+	case "help":
+		fmt.println(HELP_MSG);
+
+	case "scan":
+		if len(args.targets) == 0 {
+			fmt.eprintln("no input files\n");
+			exit_code = -1;
+		} else if len(args.targets) > 1 {
+			fmt.eprintln("multiple input files are not supported yet\n");
+			exit_code = -1;
+		}
+	}
+
+	x := [5]int {
+		0 = 1,
+	};
+	fmt.println(x);
+
+	if exit_code != 0 do os.exit(exit_code);
 }
