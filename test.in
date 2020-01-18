@@ -1,16 +1,7 @@
-constant msg "Hello, World!\0"
-
-proc C.puts(C.ptr) C.int32
-
 proc main
-	u64.load r0 msg
-	debugstr r0
-
-	; write the argument
-	u64.sub sp 8
-	u64.write sp r0
-
-	u64.sub sp 4; allocate space for return value
-	call C.puts; perform the call
+	;this is a comment
+	i32.load r0 -1
+	i32.load r1 2
+	i32.add r0 r1
 	halt
 end

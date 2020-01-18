@@ -53,8 +53,8 @@ args_parse :: proc(self: ^Args) -> bool {
 }
 
 main :: proc() {
-	// context.allocator = amon.loc_leak_allocator();
-	// defer assert(amon.loc_leak_detect());
+	context.allocator = amon.loc_leak_allocator();
+	defer amon.loc_leak_detect();
 
 	args: Args;
 	if args_parse(&args) == false {
@@ -73,16 +73,32 @@ main :: proc() {
 		if len(args.targets) == 0 {
 			fmt.eprintln("no input files\n");
 			exit_code = -1;
+			break;
 		} else if len(args.targets) > 1 {
 			fmt.eprintln("multiple input files are not supported yet\n");
 			exit_code = -1;
+			break;
 		}
-	}
 
-	x := [5]int {
-		0 = 1,
-	};
-	fmt.println(x);
+		src: zas.Src;
+		if zas.src_from_file(&src, args.targets[0]) == false {
+			fmt.eprintf("error while reading the file '%v'\n", args.targets[0]);
+			exit_code = -1;
+			break;
+		}
+		defer zas.src_delete(&src);
+
+		if zas.src_scan(&src) == false {
+			fmt.eprintln(src.errs);
+			exit_code = -1;
+			break;
+		}
+
+		tkns := zas.src_tkns_dump(&src);
+		defer delete(tkns);
+
+		fmt.println(tkns);
+	}
 
 	if exit_code != 0 do os.exit(exit_code);
 }

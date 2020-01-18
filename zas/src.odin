@@ -3,6 +3,7 @@ package zas
 import "core:os"
 import "core:mem"
 import "core:strings"
+import "core:fmt"
 
 Pos :: struct {
 	line, col: int,
@@ -34,7 +35,7 @@ Src :: struct {
 }
 
 src_from_file :: proc(self: ^Src, path: string) -> bool {
-	bytes, ok := os.read_entire_file(self.path);
+	bytes, ok := os.read_entire_file(path);
 	if ok == false do return false;
 
 	self^ = Src {
@@ -50,7 +51,7 @@ src_from_file :: proc(self: ^Src, path: string) -> bool {
 
 src_from_string :: proc(self: ^Src, code: string) {
 	bytes := make([]byte, len(code));
-	mem.copy(&bytes[0], strings.ptr_from_string(code), len(code));
+	copy(bytes, code);
 
 	self^ = Src {
 		path = strings.clone("<STRING>"),
@@ -70,4 +71,14 @@ src_delete :: proc(self: ^Src) {
 	}
 	delete(self.errs);
 	delete(self.tkns);
+}
+
+src_tkns_dump :: proc(self: ^Src) -> string {
+	//this is a tmp stream you can use to construct strings into
+	b := strings.make_builder();
+
+	for tkn in self.tkns {
+		fmt.sbprintf(&b, "line: %v, col: %v, kind: '%v', str: '%v'\n", tkn.pos.line, tkn.pos.col, tkn.kind, tkn.str);
+	}
+	return strings.to_string(b);
 }
