@@ -24,6 +24,7 @@ forge/generated/*
 compile_commands.json
 **/Exports.h
 vsbuild
+**/*.exe
 
 # User-specific files
 *.suo
