@@ -65,9 +65,10 @@ _scanner_eat :: proc(self: ^Scanner) -> bool {
 	prev_it := self.it;
 	prev_c  := self.c;
 
-	c, rune_size := utf8.decode_rune(self.src.content[self.it:]);
-	self.c = c;
+	_, rune_size := utf8.decode_rune(self.src.content[self.it:]);
 	self.it += rune_size;
+	c, _ := utf8.decode_rune(self.src.content[self.it:]);
+	self.c = c;
 
 	self.pos.col += 1;
 
@@ -82,14 +83,16 @@ _scanner_eat :: proc(self: ^Scanner) -> bool {
 }
 
 _scanner_skip_whitespaces :: proc(self: ^Scanner) {
-	for unicode.is_white_space(self.c) {
+	for strings.is_space(self.c) {
 		if _scanner_eat(self) == false do break;
 	}
 }
 
 _scanner_id :: proc(self: ^Scanner) -> string {
 	begin_it := self.it;
+	end_it := self.it;
 	for _rune_is_letter(self.c) || _rune_is_digit(self.c) || self.c == '.' {
+		end_it += 1;
 		if _scanner_eat(self) == false do break;
 	}
 	return cast(string)self.src.content[begin_it:self.it];
@@ -252,7 +255,7 @@ _scanner_tkn :: proc(self: ^Scanner) -> Tkn {
 	} else if _rune_is_digit(self.c) {
 		_scanner_num(self, &tkn);
 	} else if self.c == '-' || self.c == '+' {
-		next, _ := utf8.decode_rune(self.src.content[self.it:]);
+		next, _ := utf8.decode_rune(self.src.content[self.it + 1:]);
 		if _rune_is_digit(next) do _scanner_num(self, &tkn);
 	} else {
 		c := self.c;
