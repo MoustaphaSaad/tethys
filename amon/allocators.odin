@@ -145,10 +145,13 @@ loc_leak_allocator_proc :: proc(allocator_data: rawptr, mode: mem.Allocator_Mode
 		ptr := os.heap_resize(old_memory, size);
 		sync.atomic_add(&self.size, size - old_size, .Release);
 
-		// update the lock
-		sync.mutex_lock(&self.mtx);
-		self.locs[ptr] = loc;
-		sync.mutex_unlock(&self.mtx);
+		// update the loc
+		if ptr != old_memory {
+			sync.mutex_lock(&self.mtx);
+			delete_key(&self.locs, old_memory);
+			self.locs[ptr] = loc;
+			sync.mutex_unlock(&self.mtx);
+		}
 		return ptr;
 	}
 
