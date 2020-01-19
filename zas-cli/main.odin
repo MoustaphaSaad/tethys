@@ -80,8 +80,8 @@ main :: proc() {
 			break;
 		}
 
-		src: zas.Src;
-		if zas.src_from_file(&src, args.targets[0]) == false {
+		src, ok := zas.src_from_file(args.targets[0]);
+		if ok == false {
 			fmt.eprintf("error while reading the file '%v'\n", args.targets[0]);
 			exit_code = -1;
 			break;
@@ -98,6 +98,41 @@ main :: proc() {
 		defer delete(tkns);
 
 		fmt.println(tkns);
+
+	case "parse":
+		if len(args.targets) == 0 {
+			fmt.eprintln("no input files\n");
+			exit_code = -1;
+			break;
+		} else if len(args.targets) > 1 {
+			fmt.eprintln("multiple input files are not supported yet\n");
+			exit_code = -1;
+			break;
+		}
+
+		src, ok := zas.src_from_file(args.targets[0]);
+		if ok == false {
+			fmt.eprintf("error while reading the file '%v'\n", args.targets[0]);
+			exit_code = -1;
+			break;
+		}
+		defer zas.src_delete(&src);
+
+		if zas.src_scan(&src) == false {
+			fmt.eprintln(src.errs);
+			exit_code = -1;
+			break;
+		}
+
+		if zas.src_parse(&src) == false {
+			fmt.eprintln(src.errs);
+			os.exit(-1);
+		}
+
+		decls := zas.src_decls_dump(&src);
+		defer delete(decls);
+
+		fmt.println(decls);
 	}
 
 	if exit_code != 0 do os.exit(exit_code);
