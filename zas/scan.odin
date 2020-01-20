@@ -76,7 +76,9 @@ _scanner_eat :: proc(self: ^Scanner) -> bool {
 		self.pos.col = 1;
 		self.pos.line += 1;
 
-		append(&self.src.lines, cast(string)self.src.content[self.line_begin:self.it]);
+		if prev_it > 0 && self.src.content[prev_it - 1] == '\r' do prev_it -= 1;
+
+		append(&self.src.lines, Rng{ begin = self.line_begin, end = prev_it });
 		self.line_begin = self.it;
 	}
 	return true;

@@ -29,7 +29,7 @@ Err :: struct {
 Src :: struct {
 	path: string,
 	content: []byte,
-	lines: [dynamic]string,
+	lines: [dynamic]Rng,
 	errs: [dynamic]Err,
 	tkns: [dynamic]Tkn,
 	decls: [dynamic]Decl,
@@ -46,7 +46,7 @@ src_from_file :: proc(path: string) -> (self: Src, ok: bool) {
 	self = Src {
 		path = strings.clone(path),
 		content = bytes,
-		lines = make([dynamic]string),
+		lines = make([dynamic]Rng),
 		errs = make([dynamic]Err),
 		tkns = make([dynamic]Tkn),
 		decls = make([dynamic]Decl),
@@ -61,7 +61,7 @@ src_from_string :: proc(code: string) -> Src {
 	return Src {
 		path = strings.clone("<STRING>"),
 		content = bytes,
-		lines = make([dynamic]string),
+		lines = make([dynamic]Rng),
 		errs = make([dynamic]Err),
 		tkns = make([dynamic]Tkn),
 	};
@@ -78,8 +78,32 @@ src_delete :: proc(self: ^Src) {
 	delete(self.decls);
 }
 
+src_errs_dump :: proc(self: ^Src) -> string {
+	b := strings.make_builder();
+
+	for err in self.errs {
+		line := self.lines[err.pos.line - 1];
+		if line.begin != 0 && line.end != 0 {
+			line_text := cast(string)self.content[line.begin:line.end];
+			fmt.sbprintf(&b, ">>%v\n", line_text);
+			fmt.sbprintf(&b, ">>");
+			for i := line.begin; i < line.end; i += 1{
+				if i >= err.rng.begin && i < err.rng.end {
+					fmt.sbprintf(&b, "^");
+				} else if self.content[i] == '\t' {
+					fmt.sbprintf(&b, "\t");
+				} else {
+					fmt.sbprintf(&b, " ");
+				}
+			}
+			fmt.sbprintf(&b, "\n");
+		}
+		fmt.sbprintf(&b, "Error[%v:%v:%v]: %v\n", self.path, err.pos.line, err.pos.col, err.msg);
+	}
+	return strings.to_string(b);
+}
+
 src_tkns_dump :: proc(self: ^Src) -> string {
-	//this is a tmp stream you can use to construct strings into
 	b := strings.make_builder();
 
 	for tkn in self.tkns {
@@ -106,7 +130,7 @@ _proc_dump :: proc(self: Proc, b: ^strings.Builder) {
 		} else if ins.op.kind == .Keyword_Ret || ins.op.kind == .Keyword_Halt {
 			fmt.sbprintf(b, "  %v\n", ins.op.str);
 		} else if ins.op.kind == .ID {
-			fmt.sbprintf(b, "  %v:\n", ins.op.str);
+			fmt.sbprintf(b, "%v:\n", ins.op.str);
 		} else {
 			fmt.sbprintf(b, "  %v:\n", ins.op.kind);
 		}
@@ -124,7 +148,7 @@ _c_proc_dump :: proc(self: C_Proc, b: ^strings.Builder) {
 		if i != 0 do fmt.sbprintf(b, ", ");
 		fmt.sbprintf(b, "%v", arg.str);
 	}
-	fmt.sbprintf(b, ")\n");
+	fmt.sbprintf(b, ") %v\n", self.ret.str);
 }
 
 src_decls_dump :: proc(self: ^Src) -> string {
