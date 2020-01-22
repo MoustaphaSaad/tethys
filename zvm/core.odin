@@ -1,5 +1,7 @@
 package zvm
 
+import "core:mem"
+
 Op :: enum u8 {
 	// illegal opcode
 	Igl,
@@ -199,30 +201,30 @@ Reg_Value :: struct #raw_union {
 	uint16: u16,
 	uint32: u32,
 	uint64: u64,
-	ptr:	rawptr,
+	ptr:	uintptr,
 }
 
-pop8 :: proc(bytes: [dynamic]byte, ix: ^uint) -> u8 {
-	r := transmute(^u8)&bytes[ix^]^;
-	^ix += size_of(r);
+pop8 :: proc(bytes: [dynamic]byte, ix: ^u64) -> u8 {
+	r := (transmute(^u8)&bytes[ix^])^;
+	ix^ += size_of(r);
 	return r;
 }
 
-pop16 :: proc(bytes: [dynamic]byte, ix: ^uint) -> u16 {
-	r := transmute(^u16)&bytes[ix^]^;
-	^ix += size_of(r);
+pop16 :: proc(bytes: [dynamic]byte, ix: ^u64) -> u16 {
+	r := (transmute(^u16)&bytes[ix^])^;
+	ix^ += size_of(r);
 	return r;
 }
 
-pop32 :: proc(bytes: [dynamic]byte, ix: ^uint) -> u32 {
-	r := transmute(^u32)&bytes[ix^]^;
-	^ix += size_of(r);
+pop32 :: proc(bytes: [dynamic]byte, ix: ^u64) -> u32 {
+	r := (transmute(^u32)&bytes[ix^])^;
+	ix^ += size_of(r);
 	return r;
 }
 
-pop64 :: proc(bytes: [dynamic]byte, ix: ^uint) -> u64 {
-	r := transmute(^u64)&bytes[ix^]^;
-	^ix += size_of(r);
+pop64 :: proc(bytes: [dynamic]byte, ix: ^u64) -> u64 {
+	r := (transmute(^u64)&bytes[ix^])^;
+	ix^ += size_of(r);
 	return r;
 }
 
@@ -278,23 +280,23 @@ core_free :: proc(self: ^Core) {
 }
 
 _pop_op :: proc(self: ^Core) -> Op {
-	return transmute(Op)pop8(self.bytecode, self.r[.IP].uint64);
+	return transmute(Op)pop8(self.bytecode, &self.r[.IP].uint64);
 }
 
 _pop_reg :: proc(self: ^Core) -> Reg {
-	return transmute(Reg)pop8(self.bytecode, self.r[.IP].uint64);
+	return transmute(Reg)pop8(self.bytecode, &self.r[.IP].uint64);
 }
 
 _load_reg :: proc(self: ^Core) -> ^Reg_Value {
 	return &self.r[_pop_reg(self)];
 }
 
-_valid_stack_ptr :: proc(self: ^Core, ptr: rawptr) -> bool {
-	return ptr >= cast(rawptr)&self.stack[0] && ptr <= cast(rawptr)&self.stack[len(self.stack)];
+_valid_stack_ptr :: proc(self: ^Core, ptr: uintptr) -> bool {
+	return ptr >= cast(uintptr)&self.stack[0] && ptr <= cast(uintptr)&self.stack[len(self.stack)];
 }
 
-_valid_stack_next_bytes :: proc(self: ^Core, ptr: rawptr, size: uint) -> bool {
-	return _valid_stack_ptr(self, ptr) && _valid_stack_ptr(self, ptr + size);
+_valid_stack_next_bytes :: proc(self: ^Core, ptr: uintptr, size: uint) -> bool {
+	return _valid_stack_ptr(self, ptr) && _valid_stack_ptr(self, ptr + cast(uintptr)size);
 }
 
 core_ins_execute :: proc(self: ^Core) {
@@ -302,16 +304,16 @@ core_ins_execute :: proc(self: ^Core) {
 	switch op {
 	case .Load8:
 		dst := _load_reg(self);
-		dst.uint8 = pop8(self.bytecode, self.r[.IP].uint64);
+		dst.uint8 = pop8(self.bytecode, &self.r[.IP].uint64);
 	case .Load16:
 		dst := _load_reg(self);
-		dst.uint16 = pop16(self.bytecode, self.r[.IP].uint64);
+		dst.uint16 = pop16(self.bytecode, &self.r[.IP].uint64);
 	case .Load32:
 		dst := _load_reg(self);
-		dst.uint32 = pop32(self.bytecode, self.r[.IP].uint64);
+		dst.uint32 = pop32(self.bytecode, &self.r[.IP].uint64);
 	case .Load64:
 		dst := _load_reg(self);
-		dst.uint64 = pop64(self.bytecode, self.r[.IP].uint64);
+		dst.uint64 = pop64(self.bytecode, &self.r[.IP].uint64);
 	case .Add8:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -330,19 +332,19 @@ core_ins_execute :: proc(self: ^Core) {
 		dst.uint64 += src.uint64;
 	case .ImmAdd8:
 		dst := _load_reg(self);
-		imm := pop8(self.bytecode, self.r[.IP].uint64);
+		imm := pop8(self.bytecode, &self.r[.IP].uint64);
 		dst.uint8 += imm;
 	case .ImmAdd16:
 		dst := _load_reg(self);
-		imm := pop16(self.bytecode, self.r[.IP].uint64);
+		imm := pop16(self.bytecode, &self.r[.IP].uint64);
 		dst.uint16 += imm;
 	case .ImmAdd32:
 		dst := _load_reg(self);
-		imm := pop32(self.bytecode, self.r[.IP].uint64);
+		imm := pop32(self.bytecode, &self.r[.IP].uint64);
 		dst.uint32 += imm;
 	case .ImmAdd64:
 		dst := _load_reg(self);
-		imm := pop64(self.bytecode, self.r[.IP].uint64);
+		imm := pop64(self.bytecode, &self.r[.IP].uint64);
 		dst.uint64 += imm;
 	case .Sub8:
 		dst := _load_reg(self);
@@ -362,19 +364,19 @@ core_ins_execute :: proc(self: ^Core) {
 		dst.uint64 -= src.uint64;
 	case .ImmSub8:
 		dst := _load_reg(self);
-		imm := pop8(self.bytecode, self.r[.IP].uint64);
+		imm := pop8(self.bytecode, &self.r[.IP].uint64);
 		dst.uint8 -= imm;
 	case .ImmSub16:
 		dst := _load_reg(self);
-		imm := pop16(self.bytecode, self.r[.IP].uint64);
+		imm := pop16(self.bytecode, &self.r[.IP].uint64);
 		dst.uint16 -= imm;
 	case .ImmSub32:
 		dst := _load_reg(self);
-		imm := pop32(self.bytecode, self.r[.IP].uint64);
+		imm := pop32(self.bytecode, &self.r[.IP].uint64);
 		dst.uint32 -= imm;
 	case .ImmSub64:
 		dst := _load_reg(self);
-		imm := pop64(self.bytecode, self.r[.IP].uint64);
+		imm := pop64(self.bytecode, &self.r[.IP].uint64);
 		dst.uint64 -= imm;
 	case .Mul8:
 		dst := _load_reg(self);
@@ -394,19 +396,19 @@ core_ins_execute :: proc(self: ^Core) {
 		dst.uint64 *= src.uint64;
 	case .ImmMul8:
 		dst := _load_reg(self);
-		imm := pop8(self.bytecode, self.r[.IP].uint64);
+		imm := pop8(self.bytecode, &self.r[.IP].uint64);
 		dst.uint8 *= imm;
 	case .ImmMul16:
 		dst := _load_reg(self);
-		imm := pop16(self.bytecode, self.r[.IP].uint64);
+		imm := pop16(self.bytecode, &self.r[.IP].uint64);
 		dst.uint16 *= imm;
 	case .ImmMul32:
 		dst := _load_reg(self);
-		imm := pop32(self.bytecode, self.r[.IP].uint64);
+		imm := pop32(self.bytecode, &self.r[.IP].uint64);
 		dst.uint32 *= imm;
 	case .ImmMul64:
 		dst := _load_reg(self);
-		imm := pop64(self.bytecode, self.r[.IP].uint64);
+		imm := pop64(self.bytecode, &self.r[.IP].uint64);
 		dst.uint64 *= imm;
 	case .IMul8:
 		dst := _load_reg(self);
@@ -426,19 +428,19 @@ core_ins_execute :: proc(self: ^Core) {
 		dst.sint64 *= src.sint64;
 	case .ImmIMul8:
 		dst := _load_reg(self);
-		imm := transmute(i8)pop8(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i8)pop8(self.bytecode, &self.r[.IP].uint64);
 		dst.sint8 *= imm;
 	case .ImmIMul16:
 		dst := _load_reg(self);
-		imm := transmute(i16)pop16(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i16)pop16(self.bytecode, &self.r[.IP].uint64);
 		dst.sint16 *= imm;
 	case .ImmIMul32:
 		dst := _load_reg(self);
-		imm := transmute(i32)pop32(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i32)pop32(self.bytecode, &self.r[.IP].uint64);
 		dst.sint32 *= imm;
 	case .ImmIMul64:
 		dst := _load_reg(self);
-		imm := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
 		dst.sint64 *= imm;
 	case .Div8:
 		dst := _load_reg(self);
@@ -458,19 +460,19 @@ core_ins_execute :: proc(self: ^Core) {
 		dst.uint64 /= src.uint64;
 	case .ImmDiv8:
 		dst := _load_reg(self);
-		imm := pop8(self.bytecode, self.r[.IP].uint64);
+		imm := pop8(self.bytecode, &self.r[.IP].uint64);
 		dst.uint8 /= imm;
 	case .ImmDiv16:
 		dst := _load_reg(self);
-		imm := pop16(self.bytecode, self.r[.IP].uint64);
+		imm := pop16(self.bytecode, &self.r[.IP].uint64);
 		dst.uint16 /= imm;
 	case .ImmDiv32:
 		dst := _load_reg(self);
-		imm := pop32(self.bytecode, self.r[.IP].uint64);
+		imm := pop32(self.bytecode, &self.r[.IP].uint64);
 		dst.uint32 /= imm;
 	case .ImmDiv64:
 		dst := _load_reg(self);
-		imm := pop64(self.bytecode, self.r[.IP].uint64);
+		imm := pop64(self.bytecode, &self.r[.IP].uint64);
 		dst.uint64 /= imm;
 	case .IDiv8:
 		dst := _load_reg(self);
@@ -490,19 +492,19 @@ core_ins_execute :: proc(self: ^Core) {
 		dst.sint64 /= src.sint64;
 	case .ImmIDiv8:
 		dst := _load_reg(self);
-		imm := transmute(i8)pop8(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i8)pop8(self.bytecode, &self.r[.IP].uint64);
 		dst.sint8 /= imm;
 	case .ImmIDiv16:
 		dst := _load_reg(self);
-		imm := transmute(i16)pop16(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i16)pop16(self.bytecode, &self.r[.IP].uint64);
 		dst.sint16 /= imm;
 	case .ImmIDiv32:
 		dst := _load_reg(self);
-		imm := transmute(i32)pop32(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i32)pop32(self.bytecode, &self.r[.IP].uint64);
 		dst.sint32 /= imm;
 	case .ImmIDiv64:
 		dst := _load_reg(self);
-		imm := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
 		dst.sint64 /= imm;
 	case .Cmp8:
 		op1 := _load_reg(self);
@@ -546,7 +548,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmCmp8:
 		op1 := _load_reg(self);
-		imm := pop8(self.bytecode, self.r[.IP].uint64);
+		imm := pop8(self.bytecode, &self.r[.IP].uint64);
 		if op1.uint8 > imm {
 			self.cmp = .Greater;
 		} else if op1.uint8 < imm {
@@ -556,7 +558,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmCmp16:
 		op1 := _load_reg(self);
-		imm := pop16(self.bytecode, self.r[.IP].uint64);
+		imm := pop16(self.bytecode, &self.r[.IP].uint64);
 		if op1.uint16 > imm {
 			self.cmp = .Greater;
 		} else if op1.uint16 < imm {
@@ -566,7 +568,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmCmp32:
 		op1 := _load_reg(self);
-		imm := pop32(self.bytecode, self.r[.IP].uint64);
+		imm := pop32(self.bytecode, &self.r[.IP].uint64);
 		if op1.uint32 > imm {
 			self.cmp = .Greater;
 		} else if op1.uint32 < imm {
@@ -576,7 +578,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmCmp64:
 		op1 := _load_reg(self);
-		imm := pop64(self.bytecode, self.r[.IP].uint64);
+		imm := pop64(self.bytecode, &self.r[.IP].uint64);
 		if op1.uint64 > imm {
 			self.cmp = .Greater;
 		} else if op1.uint64 < imm {
@@ -626,7 +628,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmICmp8:
 		op1 := _load_reg(self);
-		imm := transmute(i8)pop8(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i8)pop8(self.bytecode, &self.r[.IP].uint64);
 		if op1.sint8 > imm {
 			self.cmp = .Greater;
 		} else if op1.sint8 < imm {
@@ -636,7 +638,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmICmp16:
 		op1 := _load_reg(self);
-		imm := transmute(i16)pop16(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i16)pop16(self.bytecode, &self.r[.IP].uint64);
 		if op1.sint16 > imm {
 			self.cmp = .Greater;
 		} else if op1.sint16 < imm {
@@ -646,7 +648,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmICmp32:
 		op1 := _load_reg(self);
-		imm := transmute(i32)pop32(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i32)pop32(self.bytecode, &self.r[.IP].uint64);
 		if op1.sint32 > imm {
 			self.cmp = .Greater;
 		} else if op1.sint32 < imm {
@@ -656,7 +658,7 @@ core_ins_execute :: proc(self: ^Core) {
 		}
 	case .ImmICmp64:
 		op1 := _load_reg(self);
-		imm := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
+		imm := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
 		if op1.sint64 > imm {
 			self.cmp = .Greater;
 		} else if op1.sint64 < imm {
@@ -665,26 +667,26 @@ core_ins_execute :: proc(self: ^Core) {
 			self.cmp = .Equal;
 		}
 	case .Jmp:
-		offset := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
-		self.r[.IP].uint64 += offset;
+		offset := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
+		self.r[.IP].sint64 += offset;
 	case .Je:
-		offset := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
-		if self.cmp == .Equal do self.r[.IP].uint64 += offset;
+		offset := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
+		if self.cmp == .Equal do self.r[.IP].sint64 += offset;
 	case .Jne:
-		offset := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
-		if self.cmp != .Equal do self.r[.IP].uint64 += offset;
+		offset := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
+		if self.cmp != .Equal do self.r[.IP].sint64 += offset;
 	case .Jl:
-		offset := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
-		if self.cmp == .Less do self.r[.IP].uint64 += offset;
+		offset := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
+		if self.cmp == .Less do self.r[.IP].sint64 += offset;
 	case .Jle:
-		offset := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
-		if self.cmp == .Less || self.cmp == .Equal do self.r[.IP].uint64 += offset;
+		offset := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
+		if self.cmp == .Less || self.cmp == .Equal do self.r[.IP].sint64 += offset;
 	case .Jg:
-		offset := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
-		if self.cmp == .Greater do self.r[.IP].uint64 += offset;
+		offset := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
+		if self.cmp == .Greater do self.r[.IP].sint64 += offset;
 	case .Jge:
-		offset := transmute(i64)pop64(self.bytecode, self.r[.IP].uint64);
-		if self.cmp == .Greater || self.cmp == .Equal do self.r[.IP].uint64 += offset;
+		offset := transmute(i64)pop64(self.bytecode, &self.r[.IP].uint64);
+		if self.cmp == .Greater || self.cmp == .Equal do self.r[.IP].sint64 += offset;
 	case .Read8:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -692,7 +694,7 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		dst.uint8 = transmute(^u8)src.ptr^;
+		dst.uint8 = (transmute(^u8)src.ptr)^;
 	case .Read16:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -700,7 +702,7 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		dst.uint16 = transmute(^u16)src.ptr^;
+		dst.uint16 = (transmute(^u16)src.ptr)^;
 	case .Read32:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -708,7 +710,7 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		dst.uint32 = transmute(^u32)src.ptr^;
+		dst.uint32 = (transmute(^u32)src.ptr)^;
 	case .Read64:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -716,7 +718,7 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		dst.uint64 = transmute(^u64)src.ptr^;
+		dst.uint64 = (transmute(^u64)src.ptr)^;
 	case .Write8:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -724,7 +726,7 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		transmute(^u8)dst.ptr^ = src.uint8;
+		(transmute(^u8)dst.ptr)^ = src.uint8;
 	case .Write16:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -732,7 +734,7 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		transmute(^u16)dst.ptr^ = src.uint16;
+		(transmute(^u16)dst.ptr)^ = src.uint16;
 	case .Write32:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -740,7 +742,7 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		transmute(^u32)dst.ptr^ = src.uint32;
+		(transmute(^u32)dst.ptr)^ = src.uint32;
 	case .Write64:
 		dst := _load_reg(self);
 		src := _load_reg(self);
@@ -748,54 +750,54 @@ core_ins_execute :: proc(self: ^Core) {
 			self.state = .Err;
 			break;
 		}
-		transmute(^u64)dst.ptr^ = src.uint64;
+		(transmute(^u64)dst.ptr)^ = src.uint64;
 	case .Push:
 		dst := &self.r[.SP];
 		src := _load_reg(self);
-		ptr := transmute(^u64)dst.ptr - 1;
+		ptr := dst.ptr - 8;
 		if _valid_stack_next_bytes(self, ptr, 8) == false {
 			self.state = .Err;
 			break;
 		}
-		ptr^ = src.u64;
+		(transmute(^u64)ptr)^ = src.uint64;
 		dst.ptr = ptr;
 	case .Pop:
 		dst := _load_reg(self);
 		src := &self.r[.SP];
-		ptr := transmute(^u64)dst.ptr;
+		ptr := dst.ptr;
 		if _valid_stack_next_bytes(self, ptr, 8) == false {
 			self.state = .Err;
 			break;
 		}
-		dst.uint64 = ptr^;
-		src.ptr = ptr + 1;
+		dst.uint64 = (transmute(^u64)ptr)^;
+		src.ptr = ptr + 8;
 	case .Call:
 		// load proc address
-		address := pop64(self.bytecode, self.r[.IP].uint64);
+		address := pop64(self.bytecode, &self.r[.IP].uint64);
 		// load stack pointer
 		SP := &self.r[.SP];
 		// allocate space for return address
-		ptr := transmute(^u64)SP.ptr - 1;
+		ptr := SP.ptr - 8;
 		if _valid_stack_next_bytes(self, ptr, 8) == false {
 			self.state = .Err;
 			break;
 		}
 		// write the return address
-		ptr^ = self.r[.IP].uint64;
+		(transmute(^u64)ptr)^ = self.r[.IP].uint64;
 		// move the stack pointer
 		SP.ptr = ptr;
 		// jump to proc address
-		self.r[.IP].u64 = address;
+		self.r[.IP].uint64 = address;
 	case .Ret:
 		// load stack pointer
 		SP := &self.r[.SP];
-		ptr := transmute(^u64)SP.ptr;
+		ptr := SP.ptr;
 		if _valid_stack_next_bytes(self, ptr, 8) == false {
 			self.state = .Err;
 			break;
 		}
 		// restore the IP
-		self.r[.IP].u64 = ptr^;
+		self.r[.IP].uint64 = (transmute(^u64)ptr)^;
 		// deallocate the space for return address
 		SP.ptr = ptr;
 	case .CCall:

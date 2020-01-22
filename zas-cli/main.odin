@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:os"
 import "../amon"
 import "../zas"
+import "../zvm"
 
 HELP_MSG :: `zas zay assembler
 tas [command] [targets] [flags]
