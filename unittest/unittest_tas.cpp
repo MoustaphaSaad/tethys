@@ -274,7 +274,7 @@ TEST_CASE("parse: c proc")
 	auto answer = parse_str(R"""(
 	constant msg "Hello, World!\0"
 
-	proc C.add(C.int32, C.int32)
+	proc C.add(C.int32, C.int32) C.int32
 
 	proc main
 		halt
@@ -283,7 +283,7 @@ TEST_CASE("parse: c proc")
 
 	const char* expected =R"""(
 constant msg "Hello, World!\0"
-proc C.add(C.int32, C.int32)
+proc C.add(C.int32, C.int32) C.int32
 PROC main
   halt
 END
@@ -297,7 +297,7 @@ TEST_CASE("parse: c proc extra comma")
 	auto answer = parse_str(R"""(
 	constant msg "Hello, World!\0"
 
-	proc C.add(C.int32, C.int32,)
+	proc C.add(C.int32, C.int32,) C.int32
 
 	proc main
 		halt
@@ -306,7 +306,7 @@ TEST_CASE("parse: c proc extra comma")
 
 	const char* expected =R"""(
 constant msg "Hello, World!\0"
-proc C.add(C.int32, C.int32)
+proc C.add(C.int32, C.int32) C.int32
 PROC main
   halt
 END
@@ -320,7 +320,7 @@ TEST_CASE("parse: c proc wrong id")
 	auto answer = parse_str(R"""(
 	constant msg "Hello, World!\0"
 
-	proc C.add(C.int32, C.int32, wrong)
+	proc C.add(C.int32, C.int32, wrong) C.void
 
 	proc main
 		halt
@@ -328,8 +328,8 @@ TEST_CASE("parse: c proc wrong id")
 	)""");
 
 	const char* expected =R"""(
->> 	proc C.add(C.int32, C.int32, wrong)
->> 	                             ^^^^^ 
+>> 	proc C.add(C.int32, C.int32, wrong) C.void
+>> 	                             ^^^^^        
 Error[<STRING>:4:31]: expected a type token
 )""";
 

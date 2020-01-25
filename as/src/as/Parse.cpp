@@ -353,7 +353,7 @@ namespace as
 				mn::print_to(out, ", ");
 			mn::print_to(out, "{}", proc->args[i].str);
 		}
-		mn::print_to(out, ")\n");
+		mn::print_to(out, ") {}\n", proc->ret.str);
 	}
 
 	// API
