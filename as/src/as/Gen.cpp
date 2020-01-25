@@ -48,6 +48,7 @@ namespace as
 	{
 		Emitter self{};
 		self.src = src;
+		self.out = mn::buf_new<uint8_t>();
 		self.fixups = mn::buf_new<Fixup_Request>();
 		self.symbols = mn::map_new<const char*, uint64_t>();
 		self.globals = globals;
@@ -57,6 +58,7 @@ namespace as
 	inline static void
 	emitter_free(Emitter& self)
 	{
+		mn::buf_free(self.out);
 		mn::buf_free(self.fixups);
 		mn::map_free(self.symbols);
 	}
@@ -250,11 +252,11 @@ namespace as
 			emitter_reg_gen(self, ins.dst);
 			if(ins.src.kind == Tkn::KIND_ID)
 			{
-				vm::pkg_constant_reloc_add(
+				vm::pkg_reloc_add(
 					pkg,
-					mn::str_from_c(proc.name.str),
+					mn::str_lit(proc.name.str),
 					self.out.count,
-					mn::str_from_c(ins.src.str)
+					mn::str_lit(ins.src.str)
 				);
 				vm::push64(self.out, 0);
 			}
@@ -271,11 +273,11 @@ namespace as
 			emitter_reg_gen(self, ins.dst);
 			if(ins.src.kind == Tkn::KIND_ID)
 			{
-				vm::pkg_constant_reloc_add(
+				vm::pkg_reloc_add(
 					pkg,
-					mn::str_from_c(proc.name.str),
+					mn::str_lit(proc.name.str),
 					self.out.count,
-					mn::str_from_c(ins.src.str)
+					mn::str_lit(ins.src.str)
 				);
 				vm::push64(self.out, 0);
 			}
@@ -1693,7 +1695,7 @@ namespace as
 				vm::push8(self.out, uint8_t(vm::Op_C_CALL));
 			else
 				vm::push8(self.out, uint8_t(vm::Op_CALL));
-			vm::pkg_reloc_add(pkg, mn::str_from_c(proc.name.str), self.out.count, mn::str_from_c(ins.lbl.str));
+			vm::pkg_reloc_add(pkg, mn::str_lit(proc.name.str), self.out.count, mn::str_lit(ins.lbl.str));
 			vm::push64(self.out, 0);
 			break;
 		
@@ -1842,11 +1844,9 @@ namespace as
 		}
 	}
 
-	inline static mn::Buf<uint8_t>
+	inline static void
 	emitter_proc_gen(Emitter& self, const Proc& proc, vm::Pkg& pkg)
 	{
-		self.out = mn::buf_new<uint8_t>();
-
 		// emit the proc bytecode
 		for(const auto& ins: proc.ins)
 			emitter_ins_gen(self, ins, proc, pkg);
@@ -1864,10 +1864,6 @@ namespace as
 			int64_t offset = it->value - (fixup.bytecode_index + sizeof(int64_t));
 			write64(self.out.ptr + fixup.bytecode_index, uint64_t(offset));
 		}
-
-		auto res = self.out;
-		self.out = {};
-		return res;
 	}
 
 	inline static void
@@ -2062,8 +2058,8 @@ namespace as
 				auto emitter = emitter_new(src, &globals);
 				mn_defer(emitter_free(emitter));
 
-				auto code = emitter_proc_gen(emitter, decl->proc, pkg);
-				vm::pkg_proc_add(pkg, decl->proc.name.str, code);
+				emitter_proc_gen(emitter, decl->proc, pkg);
+				vm::pkg_proc_add(pkg, decl->proc.name.str, mn::block_from(emitter.out));
 				break;
 			}
 
@@ -2080,8 +2076,8 @@ namespace as
 
 				vm::pkg_constant_add(
 					pkg,
-					mn::str_from_c(decl->constant.name.str),
-					block_from(tmp_str)
+					decl->constant.name.str,
+					mn::block_from(tmp_str)
 				);
 				break;
 			}
