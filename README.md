@@ -3942,3 +3942,260 @@ case Op_C_CALL:
 ```
 
 and that's it for today
+
+### Day-21
+
+Today we'll do a little bit of refactoring of our pkg type, we were storing procs and constants separately same for the relocations today we'll merge the two.
+
+old package
+```C++
+struct Pkg
+{
+	mn::Map<mn::Str, mn::Buf<uint8_t>> constants;
+	mn::Map<mn::Str, mn::Buf<uint8_t>> procs;
+	mn::Buf<Reloc> relocs;
+	mn::Buf<Reloc> constant_relocs;
+	mn::Buf<C_Proc> c_procs;
+};
+```
+
+refactored package
+```C++
+struct Pkg
+{
+	// this will contain the procs and constants
+	mn::Map<mn::Str, Section> sections;
+	// this will contains constant relocs as well as proc relocs
+	mn::Buf<Reloc> relocs;
+	mn::Buf<C_Proc> c_procs;
+};
+```
+
+first let's create the `Section` type
+```C++
+struct Section
+{
+	enum KIND: uint8_t
+	{
+		KIND_CONSTANT,
+		KIND_BYTECODE,
+	};
+
+	KIND kind;
+	mn::Str name;
+	mn::Block bytes;
+};
+
+Section
+section_constant_new(const mn::Str& name, mn::Block bytes)
+{
+	Section self{};
+	self.kind = Section::KIND_CONSTANT;
+	self.name = clone(name);
+	self.bytes = mn::block_clone(bytes);
+	return self;
+}
+
+Section
+section_bytecode_new(const mn::Str& name, mn::Block bytes)
+{
+	Section self{};
+	self.kind = Section::KIND_BYTECODE;
+	self.name = clone(name);
+	self.bytes = mn::block_clone(bytes);
+	return self;
+}
+
+void
+section_free(Section& self)
+{
+	mn::str_free(self.name);
+	mn::free(self.bytes);
+}
+
+void
+section_save(const Section &self, mn::Stream out)
+{
+	mn::stream_write(out, mn::block_from(self.kind));
+	_write_string(out, self.name);
+	_write_bytes(out, self.bytes);
+}
+
+Section
+section_load(mn::Stream in)
+{
+	Section self{};
+	mn::stream_read(in, mn::block_from(self.kind));
+	self.name = _read_string(in);
+	self.bytes = _read_bytes(in);
+	return self;
+}
+```
+
+now that's out of the way let's add a save and load function for the reloc type
+```C++
+void
+reloc_save(const Reloc& self, mn::Stream out)
+{
+	_write_string(out, self.source_name);
+	_write_string(out, self.target_name);
+	mn::stream_write(out, mn::block_from(self.source_offset));
+}
+
+Reloc
+reloc_load(mn::Stream in)
+{
+	Reloc self{};
+	self.source_name = _read_string(in);
+	self.target_name = _read_string(in);
+	mn::stream_read(in, mn::block_from(self.source_offset));
+	return self;
+}
+```
+
+and then all we need to do is to change the `pkg_save`, and `pkg_load` functions
+let's start with the `pkg_save`
+```C++
+void
+pkg_save(const Pkg& self, const mn::Str& filename)
+{
+	...
+	// write sections
+	uint32_t len = uint32_t(self.sections.count);
+	mn::stream_write(f, mn::block_from(len));
+	for (const auto& [_, value] : self.sections)
+		section_save(value, f);
+
+	len = uint32_t(self.relocs.count);
+	mn::stream_write(f, mn::block_from(len));
+	for (const auto& reloc : self.relocs)
+		reloc_save(reloc, f);
+	...
+}
+```
+
+then let's update the `pkg_load`
+```C++
+Pkg
+pkg_load(const mn::Str& filename)
+{
+	...
+
+	// read sections count
+	uint32_t len = 0;
+	mn::stream_read(f, mn::block_from(len));
+	mn::map_reserve(self.sections, len);
+
+	// read each section
+	for(size_t i = 0; i < len; ++i)
+	{
+		auto section = section_load(f);
+		mn::map_insert(self.sections, section.name, section);
+	}
+
+	// read relocs count
+	len = 0;
+	mn::stream_read(f, mn::block_from(len));
+	mn::buf_reserve(self.relocs, len);
+
+	// read each reloc
+	for(size_t i = 0; i < len; ++i)
+		mn::buf_push(self.relocs, reloc_load(f));
+
+	...
+	return self;
+}
+```
+
+and now all that's left is to update the `pkg_core_load` function
+```C++
+mn::Err
+pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes)
+{
+	...
+
+	auto section_offset_table = mn::map_new<mn::Str, uint64_t>();
+	mn_defer(mn::map_free(section_offset_table));
+
+	for(const auto&[key, value]: self.sections)
+	{
+		switch(value.kind)
+		{
+		case Section::KIND_BYTECODE:
+		{
+			mn::map_insert(section_offset_table, key, uint64_t(core.bytecode.count));
+			auto old_count = core.bytecode.count;
+			mn::buf_resize(core.bytecode, value.bytes.size);
+			::memcpy(core.bytecode.ptr + old_count, value.bytes.ptr, value.bytes.size);
+			break;
+		}
+		case Section::KIND_CONSTANT:
+		{
+			mn::map_insert(section_offset_table, key, uint64_t(core.stack.count));
+			auto old_count = core.stack.count;
+			mn::buf_resize(core.stack, value.bytes.size);
+			::memcpy(core.stack.ptr + old_count, value.bytes.ptr, value.bytes.size);
+			break;
+		}
+		default:
+			assert(false && "unreachable");
+			break;
+		}
+	}
+
+	mn::buf_resize(core.stack, core.stack.count + stack_size_in_bytes);
+
+	// after loading procs we'll need to perform the relocs
+	for(const auto& reloc: self.relocs)
+	{
+		auto source_it = mn::map_lookup(section_offset_table, reloc.source_name);
+		if (source_it == nullptr)
+			return mn::Err{ "relocation section '{}' not found", reloc.source_name };
+
+		const auto& [_1, source_section] = *mn::map_lookup(self.sections, reloc.source_name);
+		if(source_section.kind != Section::KIND_BYTECODE)
+			return mn::Err{ "unsupported relocation in a non-procedure section '{}'", reloc.source_name };
+
+		if(mn::str_prefix(reloc.target_name, "C."))
+		{
+			auto target_it = mn::map_lookup(loaded_c_procs_table, reloc.target_name);
+			if (target_it == nullptr)
+				return mn::Err{ "relocation target procedure '{}' not found", reloc.target_name };
+
+			_write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+		}
+		else
+		{
+			auto target_it = mn::map_lookup(section_offset_table, reloc.target_name);
+			if (target_it == nullptr)
+				return mn::Err{ "relocation target section '{}' not found", reloc.target_name };
+
+			const auto &[_2, target_section] = *mn::map_lookup(self.sections, reloc.target_name);
+			switch (target_section.kind)
+			{
+			case Section::KIND_BYTECODE:
+				_write64(
+					core.bytecode.ptr + source_it->value + reloc.source_offset,
+					target_it->value
+				);
+				break;
+			case Section::KIND_CONSTANT:
+				_write64(
+					core.bytecode.ptr + source_it->value + reloc.source_offset,
+					uint64_t(core.stack.ptr + target_it->value)
+				);
+				break;
+			default:
+				assert(false && "unreachable");
+				break;
+			}
+		}
+	}
+
+	...
+	return mn::Err{};
+}
+```
+
+and that's it for today, nothing too exciting but it's necessary to do this kind of cleanup to make
+room for new code

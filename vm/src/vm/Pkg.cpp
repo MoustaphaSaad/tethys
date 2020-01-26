@@ -9,7 +9,7 @@
 namespace vm
 {
 	inline static void
-	write64(uint8_t* ptr, uint64_t v)
+	_write64(uint8_t* ptr, uint64_t v)
 	{
 		ptr[0] = uint8_t(v);
 		ptr[1] = uint8_t(v >> 8);
@@ -22,47 +22,93 @@ namespace vm
 	}
 
 	inline static void
-	write_string(mn::File f, const mn::Str& str)
+	_write_string(mn::Stream out, const mn::Str& str)
 	{
 		uint32_t len = uint32_t(str.count);
-		mn::stream_write(f, mn::block_from(len));
-		mn::stream_write(f, mn::block_from(str));
+		mn::stream_write(out, mn::block_from(len));
+		mn::stream_write(out, mn::block_from(str));
 	}
 
 	inline static void
-	write_bytes(mn::File f, const mn::Buf<uint8_t>& bytes)
+	_write_bytes(mn::Stream out, mn::Block bytes)
 	{
-		uint32_t len = uint32_t(bytes.count);
-		mn::stream_write(f, mn::block_from(len));
-		mn::stream_write(f, mn::block_from(bytes));
+		uint32_t len = uint32_t(bytes.size);
+		mn::stream_write(out, mn::block_from(len));
+		mn::stream_write(out, bytes);
 	}
 
 	inline static mn::Str
-	read_string(mn::File f)
+	_read_string(mn::Stream in)
 	{
 		uint32_t len = 0;
-		mn::stream_read(f, mn::block_from(len));
+		mn::stream_read(in, mn::block_from(len));
 
 		auto v = mn::str_new();
 		mn::str_resize(v, len);
-		mn::stream_read(f, mn::block_from(v));
+		mn::stream_read(in, mn::block_from(v));
 
 		return v;
 	}
 
-	inline static mn::Buf<uint8_t>
-	read_bytes(mn::File f)
+	inline static mn::Block
+	_read_bytes(mn::Stream in)
 	{
 		uint32_t len = 0;
-		mn::stream_read(f, mn::block_from(len));
+		mn::stream_read(in, mn::block_from(len));
 
-		auto v = mn::buf_with_count<uint8_t>(len);
-		mn::stream_read(f, mn::block_from(v));
+		auto v = mn::alloc(len, alignof(uint8_t));
+		mn::stream_read(in, v);
 
 		return v;
 	}
 
 	// API
+	Section
+	section_constant_new(const mn::Str& name, mn::Block bytes)
+	{
+		Section self{};
+		self.kind = Section::KIND_CONSTANT;
+		self.name = clone(name);
+		self.bytes = mn::block_clone(bytes);
+		return self;
+	}
+
+	Section
+	section_bytecode_new(const mn::Str& name, mn::Block bytes)
+	{
+		Section self{};
+		self.kind = Section::KIND_BYTECODE;
+		self.name = clone(name);
+		self.bytes = mn::block_clone(bytes);
+		return self;
+	}
+
+	void
+	section_free(Section& self)
+	{
+		mn::str_free(self.name);
+		mn::free(self.bytes);
+	}
+
+	void
+	section_save(const Section& self, mn::Stream out)
+	{
+		mn::stream_write(out, mn::block_from(self.kind));
+		_write_string(out, self.name);
+		_write_bytes(out, self.bytes);
+	}
+
+	Section
+	section_load(mn::Stream in)
+	{
+		Section self{};
+		mn::stream_read(in, mn::block_from(self.kind));
+		self.name = _read_string(in);
+		self.bytes = _read_bytes(in);
+		return self;
+	}
+
+
 	Reloc
 	reloc_new()
 	{
@@ -79,14 +125,31 @@ namespace vm
 		mn::str_free(self.target_name);
 	}
 
+	void
+	reloc_save(const Reloc& self, mn::Stream out)
+	{
+		_write_string(out, self.source_name);
+		_write_string(out, self.target_name);
+		mn::stream_write(out, mn::block_from(self.source_offset));
+	}
+
+	Reloc
+	reloc_load(mn::Stream in)
+	{
+		Reloc self{};
+		self.source_name = _read_string(in);
+		self.target_name = _read_string(in);
+		mn::stream_read(in, mn::block_from(self.source_offset));
+		return self;
+	}
+
+
 	Pkg
 	pkg_new()
 	{
 		Pkg self{};
-		self.constants = mn::map_new<mn::Str, mn::Buf<uint8_t>>();
-		self.procs = mn::map_new<mn::Str, mn::Buf<uint8_t>>();
+		self.sections = mn::map_new<mn::Str, Section>();
 		self.relocs = mn::buf_new<Reloc>();
-		self.constant_relocs = mn::buf_new<Reloc>();
 		self.c_procs = mn::buf_new<C_Proc>();
 		return self;
 	}
@@ -94,47 +157,38 @@ namespace vm
 	void
 	pkg_free(Pkg& self)
 	{
-		destruct(self.constants);
-		destruct(self.procs);
+		for (auto& [key, value] : self.sections)
+			section_free(value);
+		map_free(self.sections);
+
 		destruct(self.relocs);
-		destruct(self.constant_relocs);
 		destruct(self.c_procs);
 	}
 
-	bool
-	pkg_proc_add(Pkg& self, const mn::Str& name, const mn::Buf<uint8_t>& bytes)
+	void
+	pkg_proc_add(Pkg& self, const mn::Str& name, mn::Block bytes)
 	{
-		if (mn::map_lookup(self.procs, name) != nullptr)
-			return false;
-
-		mn::map_insert(self.procs, name, bytes);
-		return true;
+		assert(mn::map_lookup(self.sections, name) == nullptr);
+		auto section = section_bytecode_new(name, bytes);
+		mn::map_insert(self.sections, section.name, section);
 	}
 
 	void
-	pkg_reloc_add(Pkg& self, mn::Str source_name, uint64_t source_offset, mn::Str target_name)
+	pkg_constant_add(Pkg& self, const mn::Str &name, mn::Block bytes)
 	{
-		mn::buf_push(self.relocs, Reloc{ source_name, target_name, source_offset });
-	}
-
-	bool
-	pkg_constant_add(Pkg& self, mn::Str constant_name, mn::Block bytes)
-	{
-		auto it = mn::map_lookup(self.constants, constant_name);
-		assert(it == nullptr);
-		if (it != nullptr)
-			return false;
-
-		auto buf = mn::buf_with_count<uint8_t>(bytes.size);
-		::memcpy(buf.ptr, bytes.ptr, bytes.size);
-		mn::map_insert(self.constants, constant_name, buf);
-		return true;
+		assert(mn::map_lookup(self.sections, name) == nullptr);
+		auto section = section_constant_new(name, bytes);
+		mn::map_insert(self.sections, section.name, section);
 	}
 
 	void
-	pkg_constant_reloc_add(Pkg& self, mn::Str source_name, uint64_t source_offset, mn::Str target_name)
+	pkg_reloc_add(Pkg& self, const mn::Str &source_name, uint64_t source_offset, const mn::Str &target_name)
 	{
-		mn::buf_push(self.constant_relocs, Reloc{ source_name, target_name, source_offset });
+		mn::buf_push(self.relocs, Reloc{
+			clone(source_name),
+			clone(target_name),
+			source_offset
+		});
 	}
 
 	void
@@ -144,55 +198,17 @@ namespace vm
 		assert(f != nullptr);
 		mn_defer(mn::file_close(f));
 
-		// write procs count
-		uint32_t len = uint32_t(self.procs.count);
+		// write sections
+		uint32_t len = uint32_t(self.sections.count);
 		mn::stream_write(f, mn::block_from(len));
+		for (const auto& [_, value] : self.sections)
+			section_save(value, f);
 
-		// write each proc
-		for(auto it = mn::map_begin(self.procs);
-			it != mn::map_end(self.procs);
-			it = mn::map_next(self.procs, it))
-		{
-			write_string(f, it->key);
-			write_bytes(f, it->value);
-		}
-
-		// write relocs count
 		len = uint32_t(self.relocs.count);
 		mn::stream_write(f, mn::block_from(len));
+		for (const auto& reloc : self.relocs)
+			reloc_save(reloc, f);
 
-		// write each reloc
-		for(const auto& reloc: self.relocs)
-		{
-			write_string(f, reloc.source_name);
-			write_string(f, reloc.target_name);
-			mn::stream_write(f, mn::block_from(reloc.source_offset));
-		}
-
-		// write constants count
-		len = uint32_t(self.constants.count);
-		mn::stream_write(f, mn::block_from(len));
-
-		// write each constant
-		for(auto it = mn::map_begin(self.constants);
-			it != mn::map_end(self.constants);
-			it = mn::map_next(self.constants, it))
-		{
-			write_string(f, it->key);
-			write_bytes(f, it->value);
-		}
-
-		// write relocs count
-		len = uint32_t(self.constant_relocs.count);
-		mn::stream_write(f, mn::block_from(len));
-
-		// write each reloc
-		for(const auto& reloc: self.constant_relocs)
-		{
-			write_string(f, reloc.source_name);
-			write_string(f, reloc.target_name);
-			mn::stream_write(f, mn::block_from(reloc.source_offset));
-		}
 
 		// write c procs count
 		len = uint32_t(self.c_procs.count);
@@ -201,8 +217,8 @@ namespace vm
 		// write each proc
 		for(const auto &proc: self.c_procs)
 		{
-			write_string(f, proc.lib);
-			write_string(f, proc.name);
+			_write_string(f, proc.lib);
+			_write_string(f, proc.name);
 
 			// write arg_types count
 			len = uint32_t(proc.arg_types.count);
@@ -223,17 +239,16 @@ namespace vm
 		assert(f != nullptr);
 		mn_defer(mn::file_close(f));
 
-		// read procs count
+		// read sections count
 		uint32_t len = 0;
 		mn::stream_read(f, mn::block_from(len));
-		mn::map_reserve(self.procs, len);
+		mn::map_reserve(self.sections, len);
 
-		// read each proc
+		// read each section
 		for(size_t i = 0; i < len; ++i)
 		{
-			auto name = read_string(f);
-			auto bytes = read_bytes(f);
-			pkg_proc_add(self, name, bytes);
+			auto section = section_load(f);
+			mn::map_insert(self.sections, section.name, section);
 		}
 
 		// read relocs count
@@ -243,42 +258,9 @@ namespace vm
 
 		// read each reloc
 		for(size_t i = 0; i < len; ++i)
-		{
-			Reloc reloc{};
-			reloc.source_name = read_string(f);
-			reloc.target_name = read_string(f);
-			mn::stream_read(f, mn::block_from(reloc.source_offset));
-			mn::buf_push(self.relocs, reloc);
-		}
+			mn::buf_push(self.relocs, reloc_load(f));
 
-		// read constants count
-		len = 0;
-		mn::stream_read(f, mn::block_from(len));
-		mn::map_reserve(self.constants, len);
-
-		// read each constant
-		for(size_t i = 0; i < len; ++i)
-		{
-			auto name = read_string(f);
-			auto bytes = read_bytes(f);
-			mn::map_insert(self.constants, name, bytes);
-		}
-
-		// read relocs count
-		len = 0;
-		mn::stream_read(f, mn::block_from(len));
-		mn::buf_reserve(self.constant_relocs, len);
-
-		// read each reloc
-		for(size_t i = 0; i < len; ++i)
-		{
-			Reloc reloc{};
-			reloc.source_name = read_string(f);
-			reloc.target_name = read_string(f);
-			mn::stream_read(f, mn::block_from(reloc.source_offset));
-			mn::buf_push(self.constant_relocs, reloc);
-		}
-
+		
 		// read c procs count
 		len = 0;
 		mn::stream_read(f, mn::block_from(len));
@@ -288,8 +270,8 @@ namespace vm
 		for(size_t i = 0; i < len; ++i)
 		{
 			auto proc = c_proc_new();
-			proc.lib = read_string(f);
-			proc.name = read_string(f);
+			proc.lib = _read_string(f);
+			proc.name = _read_string(f);
 
 			// read args count
 			uint32_t arg_len = 0;
@@ -361,25 +343,47 @@ namespace vm
 			mn::buf_push(core.c_procs_address, ptr);
 		}
 
-		auto loaded_procs_table = mn::map_new<mn::Str, uint64_t>();
-		mn_defer(mn::map_free(loaded_procs_table));
+		auto section_offset_table = mn::map_new<mn::Str, uint64_t>();
+		mn_defer(mn::map_free(section_offset_table));
 
-		// append each proc bytecode to the result bytecode array
-		for(auto it = mn::map_begin(self.procs);
-			it != mn::map_end(self.procs);
-			it = mn::map_next(self.procs, it))
+		for(const auto&[key, value]: self.sections)
 		{
-			// add the proc name and offset in the loaded_procs_table
-			mn::map_insert(loaded_procs_table, it->key, uint64_t(core.bytecode.count));
-			mn::buf_concat(core.bytecode, it->value);
+			switch(value.kind)
+			{
+			case Section::KIND_BYTECODE:
+			{
+				mn::map_insert(section_offset_table, key, uint64_t(core.bytecode.count));
+				auto old_count = core.bytecode.count;
+				mn::buf_resize(core.bytecode, value.bytes.size);
+				::memcpy(core.bytecode.ptr + old_count, value.bytes.ptr, value.bytes.size);
+				break;
+			}
+			case Section::KIND_CONSTANT:
+			{
+				mn::map_insert(section_offset_table, key, uint64_t(core.stack.count));
+				auto old_count = core.stack.count;
+				mn::buf_resize(core.stack, value.bytes.size);
+				::memcpy(core.stack.ptr + old_count, value.bytes.ptr, value.bytes.size);
+				break;
+			}
+			default:
+				assert(false && "unreachable");
+				break;
+			}
 		}
+
+		mn::buf_resize(core.stack, core.stack.count + stack_size_in_bytes);
 
 		// after loading procs we'll need to perform the relocs
 		for(const auto& reloc: self.relocs)
 		{
-			auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
+			auto source_it = mn::map_lookup(section_offset_table, reloc.source_name);
 			if (source_it == nullptr)
-				return mn::Err{ "relocation source procedure '{}' not found", reloc.source_name };
+				return mn::Err{ "relocation section '{}' not found", reloc.source_name };
+
+			const auto& [_1, source_section] = *mn::map_lookup(self.sections, reloc.source_name);
+			if(source_section.kind != Section::KIND_BYTECODE)
+				return mn::Err{ "unsupported relocation in a non-procedure section '{}'", reloc.source_name };
 
 			if(mn::str_prefix(reloc.target_name, "C."))
 			{
@@ -387,47 +391,37 @@ namespace vm
 				if (target_it == nullptr)
 					return mn::Err{ "relocation target procedure '{}' not found", reloc.target_name };
 
-				write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+				_write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
 			}
 			else
 			{
-				auto target_it = mn::map_lookup(loaded_procs_table, reloc.target_name);
+				auto target_it = mn::map_lookup(section_offset_table, reloc.target_name);
 				if (target_it == nullptr)
-					return mn::Err{ "relocation target procedure '{}' not found", reloc.target_name };
+					return mn::Err{ "relocation target section '{}' not found", reloc.target_name };
 
-				write64(core.bytecode.ptr + source_it->value + reloc.source_offset, target_it->value);
+				const auto &[_2, target_section] = *mn::map_lookup(self.sections, reloc.target_name);
+				switch (target_section.kind)
+				{
+				case Section::KIND_BYTECODE:
+					_write64(
+						core.bytecode.ptr + source_it->value + reloc.source_offset,
+						target_it->value
+					);
+					break;
+				case Section::KIND_CONSTANT:
+					_write64(
+						core.bytecode.ptr + source_it->value + reloc.source_offset,
+						uint64_t(core.stack.ptr + target_it->value)
+					);
+					break;
+				default:
+					assert(false && "unreachable");
+					break;
+				}
 			}
 		}
 
-		auto loaded_constants_table = mn::map_new<mn::Str, uint64_t>();
-		mn_defer(mn::map_free(loaded_constants_table));
-
-		// append each constant
-		for(auto it = mn::map_begin(self.constants);
-			it != mn::map_end(self.constants);
-			it = mn::map_next(self.constants, it))
-		{
-			mn::map_insert(loaded_constants_table, it->key, uint64_t(core.stack.count));
-			mn::buf_concat(core.stack, it->value);
-		}
-
-		mn::buf_resize(core.stack, stack_size_in_bytes);
-
-		// after loading constants we'll need to perform the relocs
-		for(const auto& reloc: self.constant_relocs)
-		{
-			auto source_it = mn::map_lookup(loaded_procs_table, reloc.source_name);
-			if (source_it == nullptr)
-				return mn::Err{ "relocation source procedure '{}' not found", reloc.source_name };
-
-			auto target_it = mn::map_lookup(loaded_constants_table, reloc.target_name);
-			if (target_it == nullptr)
-				return mn::Err{ "relocation target constant '{}' not found", reloc.target_name };
-
-			write64(core.bytecode.ptr + source_it->value + reloc.source_offset, uint64_t(core.stack.ptr + target_it->value));
-		}
-
-		auto main_it = mn::map_lookup(loaded_procs_table, mn::str_lit("main"));
+		auto main_it = mn::map_lookup(section_offset_table, mn::str_lit("main"));
 		if(main_it == nullptr)
 			return mn::Err{ "undefined main proc" };
 
