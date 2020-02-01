@@ -214,11 +214,6 @@ namespace as
 		{
 			ins.op = parser_eat(self);
 		}
-		else if(op.kind == Tkn::KIND_KEYWORD_DEBUGSTR)
-		{
-			ins.op = parser_eat(self);
-			ins.dst = parser_reg(self);
-		}
 
 		return ins;
 	}
