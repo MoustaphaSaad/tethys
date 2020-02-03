@@ -251,21 +251,22 @@ namespace as
 		{
 			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
 			auto src = vm::Operand{};
-			if(ins.src.kind == Tkn::KIND_ID)
+			if (ins.src.kind == Tkn::KIND_ID)
 			{
+				src = vm::op_imm(int64_t(0));
+				auto [dst_offset, src_offset] = vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 				vm::pkg_reloc_add(
 					pkg,
 					mn::str_lit(proc.name.str),
-					self.out.count,
+					src_offset,
 					mn::str_lit(ins.src.str)
 				);
-				src = vm::op_imm(int64_t(0));
 			}
 			else
 			{
 				src = vm::op_imm(convert_to<int64_t>(ins.src));
+				vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 			}
-			vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 			break;
 		}
 
@@ -275,19 +276,20 @@ namespace as
 			auto src = vm::Operand{};
 			if(ins.src.kind == Tkn::KIND_ID)
 			{
+				src = vm::op_imm(uint64_t(0));
+				auto [dst_offset, src_offset] = vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 				vm::pkg_reloc_add(
 					pkg,
 					mn::str_lit(proc.name.str),
-					self.out.count,
+					src_offset,
 					mn::str_lit(ins.src.str)
 				);
-				src = vm::op_imm(uint64_t(0));
 			}
 			else
 			{
 				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+				vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 			}
-			vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 			break;
 		}
 
@@ -690,8 +692,8 @@ namespace as
 				src = vm::op_imm(convert_to<int8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -705,8 +707,8 @@ namespace as
 				src = vm::op_imm(convert_to<int16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -720,8 +722,8 @@ namespace as
 				src = vm::op_imm(convert_to<int32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -735,8 +737,8 @@ namespace as
 				src = vm::op_imm(convert_to<int64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -750,8 +752,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -765,8 +767,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -780,8 +782,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -795,8 +797,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -811,8 +813,8 @@ namespace as
 				src = vm::op_imm(convert_to<int8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -826,8 +828,8 @@ namespace as
 				src = vm::op_imm(convert_to<int16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -841,8 +843,8 @@ namespace as
 				src = vm::op_imm(convert_to<int32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -856,8 +858,8 @@ namespace as
 				src = vm::op_imm(convert_to<int64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -871,8 +873,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -886,8 +888,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -901,8 +903,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -916,8 +918,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -932,8 +934,8 @@ namespace as
 				src = vm::op_imm(convert_to<int8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -947,8 +949,8 @@ namespace as
 				src = vm::op_imm(convert_to<int16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -962,8 +964,8 @@ namespace as
 				src = vm::op_imm(convert_to<int32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -977,8 +979,8 @@ namespace as
 				src = vm::op_imm(convert_to<int64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -992,8 +994,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1007,8 +1009,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1022,8 +1024,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1037,8 +1039,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1053,8 +1055,8 @@ namespace as
 				src = vm::op_imm(convert_to<int8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1068,8 +1070,8 @@ namespace as
 				src = vm::op_imm(convert_to<int16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1083,8 +1085,8 @@ namespace as
 				src = vm::op_imm(convert_to<int32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1098,8 +1100,8 @@ namespace as
 				src = vm::op_imm(convert_to<int64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1113,8 +1115,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1128,8 +1130,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1143,8 +1145,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1158,8 +1160,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1174,8 +1176,8 @@ namespace as
 				src = vm::op_imm(convert_to<int8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1189,8 +1191,8 @@ namespace as
 				src = vm::op_imm(convert_to<int16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1204,8 +1206,8 @@ namespace as
 				src = vm::op_imm(convert_to<int32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1219,8 +1221,8 @@ namespace as
 				src = vm::op_imm(convert_to<int64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1234,8 +1236,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1249,8 +1251,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1264,8 +1266,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1279,8 +1281,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1295,8 +1297,8 @@ namespace as
 				src = vm::op_imm(convert_to<int8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1310,8 +1312,8 @@ namespace as
 				src = vm::op_imm(convert_to<int16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1325,8 +1327,8 @@ namespace as
 				src = vm::op_imm(convert_to<int32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1340,8 +1342,8 @@ namespace as
 				src = vm::op_imm(convert_to<int64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1355,8 +1357,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint8_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1370,8 +1372,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint16_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1385,8 +1387,8 @@ namespace as
 				src = vm::op_imm(convert_to<uint32_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
@@ -1400,46 +1402,60 @@ namespace as
 				src = vm::op_imm(convert_to<uint64_t>(ins.src));
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
 		}
 
 
 		case Tkn::KIND_KEYWORD_JMP:
-			vm::ins_push(self.out, vm::Op_JMP, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+		{
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JMP, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
+		}
 
 		case Tkn::KIND_KEYWORD_JE:
-			vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+		{
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
+		}
 
 		case Tkn::KIND_KEYWORD_JNE:
-			vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+		{
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
+		}
 
 		case Tkn::KIND_KEYWORD_JL:
-			vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+		{
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
+		}
 
 		case Tkn::KIND_KEYWORD_JLE:
-			vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+		{
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
+		}
 
 		case Tkn::KIND_KEYWORD_JG:
-			vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+		{
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
+		}
 
 		case Tkn::KIND_KEYWORD_JGE:
-			vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
-			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, self.out.count });
+		{
+			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
+			mn::buf_push(self.fixups, Fixup_Request{ ins.lbl, dst_offset });
 			break;
+		}
 
 		case Tkn::KIND_KEYWORD_I8_READ:
 		case Tkn::KIND_KEYWORD_U8_READ:
@@ -1529,12 +1545,14 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_CALL:
 		{
-			vm::pkg_reloc_add(pkg, mn::str_lit(proc.name.str), self.out.count, mn::str_lit(ins.lbl.str));
-
+			vm::Op op = vm::Op_IGL;
 			if (mn::str_prefix(ins.lbl.str, "C."))
-				vm::ins_push(self.out, vm::Op_C_CALL, vm::op_imm(uint64_t(0)), vm::op_none());
+				op = vm::Op_C_CALL;
 			else
-				vm::ins_push(self.out, vm::Op_CALL, vm::op_imm(uint64_t(0)), vm::op_none());
+				op = vm::Op_CALL;
+
+			auto [dst_offset, _] = vm::ins_push(self.out, op, vm::op_imm(uint64_t(0)), vm::op_none());
+			vm::pkg_reloc_add(pkg, mn::str_lit(proc.name.str), dst_offset, mn::str_lit(ins.lbl.str));
 			break;
 		}
 		

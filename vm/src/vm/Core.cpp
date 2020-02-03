@@ -122,6 +122,7 @@ namespace vm
 					auto shift = pop64(self.bytecode, self.r[Reg_IP].u64);
 					ptr += shift;
 				}
+				break;
 			}
 			case ADDRESS_MODE_IMM:
 			{
@@ -164,28 +165,25 @@ namespace vm
 	core_ins_execute(Core& self)
 	{
 		Op op = Op_IGL;
-		bool op_found = false;
 
-		Ext extensions[2] = {};
-		auto& dst_ext = extensions[0];
-		auto& src_ext = extensions[1];
-		for(size_t i = 0; i < 2; ++i)
+		auto byte = pop8(self.bytecode, self.r[Reg_IP].u64);
+		Ext dst_ext = Ext{};
+		Ext src_ext = Ext{};
+		if(auto ext = ext_from_byte(byte); ext.is_ext)
 		{
-			auto byte = pop8(self.bytecode, self.r[Reg_IP].u64);
-			auto ext = ext_from_byte(byte);
-			if (ext.is_ext)
+			dst_ext = ext;
+			src_ext = ext_from_byte(pop8(self.bytecode, self.r[Reg_IP].u64));
+			if(src_ext.is_ext == false)
 			{
-				extensions[i] = ext;
+				self.state = Core::STATE_ERR;
+				return;
 			}
-			else
-			{
-				op = Op(byte);
-				op_found = true;
-			}
-		}
-
-		if(op_found == false)
 			op = Op(pop8(self.bytecode, self.r[Reg_IP].u64));
+		}
+		else
+		{
+			op = Op(byte);
+		}
 
 		switch(op)
 		{

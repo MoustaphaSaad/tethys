@@ -143,24 +143,47 @@ namespace vm
 
 	struct Ext
 	{
-		bool is_ext : 1;
-		ADDRESS_MODE address_mode : 2;
-		bool is_shifted : 1;
-		uint8_t reserved : 2;
-		SCALE_MODE scale_mode : 2;
+		bool is_ext;
+		ADDRESS_MODE address_mode;
+		bool is_shifted;
+		uint8_t reserved;
+		SCALE_MODE scale_mode;
 	};
 
-	static_assert(sizeof(Ext) == sizeof(uint8_t), "Ext should be of size 1");
+	constexpr inline uint8_t MASK_IS_EXT		= 0x80; // 1000_0000
+	constexpr inline uint8_t MASK_ADDRESS_MODE	= 0x60; // 0110_0000
+	constexpr inline uint8_t MASK_IS_SHIFTED	= 0x10; // 0001_0000
+	constexpr inline uint8_t MASK_RESERVED		= 0x0C; // 0000_1100
+	constexpr inline uint8_t MASK_SCALE_MODE	= 0x03; // 0000_0011
 
 	inline static Ext
 	ext_from_byte(uint8_t b)
 	{
-		return *(Ext*)&b;
+		Ext e{};
+		e.is_ext	   = bool(b & MASK_IS_EXT);
+		e.address_mode = ADDRESS_MODE((b & MASK_ADDRESS_MODE) >> 5);
+		e.is_shifted   = bool(b & MASK_IS_SHIFTED);
+		e.reserved	   = uint8_t(b & MASK_RESERVED);
+		e.scale_mode   = SCALE_MODE(b & MASK_SCALE_MODE);
+		return e;
 	}
 
 	inline static uint8_t
 	ext_to_byte(Ext e)
 	{
-		return *(uint8_t*)&e;
+		uint8_t b = 0;
+		b |= e.is_ext ? MASK_IS_EXT : 0;
+		b |= (uint8_t(e.address_mode) << 5) & MASK_ADDRESS_MODE;
+		b |= e.is_shifted ? MASK_IS_SHIFTED : 0;
+		b |= (uint8_t(e.scale_mode)) & MASK_SCALE_MODE;
+		return b;
+	}
+
+	inline static uint8_t
+	ext_default()
+	{
+		Ext e{};
+		e.is_ext = true;
+		return ext_to_byte(e);
 	}
 }

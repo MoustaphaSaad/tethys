@@ -14,7 +14,7 @@ namespace vm
 		Ext e{};
 		e.is_ext = true;
 		e.address_mode = ADDRESS_MODE_IMM;
-		return *(uint8_t*)&e;
+		return ext_to_byte(e);
 	}
 
 	inline static uint8_t
@@ -23,9 +23,9 @@ namespace vm
 		Ext e{};
 		e.is_ext = true;
 		e.address_mode = ADDRESS_MODE_MEM;
-		e.is_shifted = shift == 0;
+		e.is_shifted = shift != 0;
 		e.scale_mode = scale;
-		return *(uint8_t*)&e;
+		return ext_to_byte(e);
 	}
 
 	struct Operand
@@ -137,50 +137,74 @@ namespace vm
 		}
 	}
 
-	inline static void
+	inline static uint64_t
 	op_push(mn::Buf<uint8_t>& code, Operand op)
 	{
+		uint64_t offset = 0;
 		switch(op.kind)
 		{
 		case Operand::KIND_NONE:
 			// do nothing
 			break;
 		case Operand::KIND_REG:
+			offset = code.count;
 			push8(code, op.reg);
 			break;
 		case Operand::KIND_IMM8:
+			offset = code.count;
 			push8(code, op.imm8);
 			break;
 		case Operand::KIND_IMM16:
+			offset = code.count;
 			push16(code, op.imm16);
 			break;
 		case Operand::KIND_IMM32:
+			offset = code.count;
 			push32(code, op.imm32);
 			break;
 		case Operand::KIND_IMM64:
+			offset = code.count;
 			push64(code, op.imm64);
 			break;
 		case Operand::KIND_MEM:
+			offset = code.count;
 			push8(code, op.mem.reg);
-			push64(code, op.mem.shift);
+			if(op.mem.shift != 0) push64(code, op.mem.shift);
 			break;
 		default:
 			assert(false && "unreachable");
 			break;
 		}
+		return offset;
 	}
 
-	inline static void
+	struct Ins_Op_Offsets
+	{
+		uint64_t dst_offset;
+		uint64_t src_offset;
+	};
+
+	inline static Ins_Op_Offsets
 	ins_push(mn::Buf<uint8_t>& code, Op opcode, Operand dst, Operand src)
 	{
-		if (auto ext = op_ext(dst); ext != 0)
-			push8(code, ext);
+		auto dst_ext = op_ext(dst);
+		auto src_ext = op_ext(src);
+		if (dst_ext != 0 || src_ext != 0)
+		{
+			if (dst_ext == 0)
+				dst_ext = ext_default();
+			push8(code, dst_ext);
 
-		if (auto ext = op_ext(src); ext != 0)
-			push8(code, ext);
+			if (src_ext == 0)
+				src_ext = ext_default();
+			push8(code, src_ext);
+		}
+
+		Ins_Op_Offsets offsets{};
 
 		push8(code, opcode);
-		op_push(code, dst);
-		op_push(code, src);
+		offsets.dst_offset = op_push(code, dst);
+		offsets.src_offset = op_push(code, src);
+		return offsets;
 	}
 }
