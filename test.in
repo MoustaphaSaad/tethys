@@ -4,7 +4,6 @@ proc C.puts(C.ptr) C.int32
 
 proc main
 	u64.load r0 msg
-	debugstr r0
 
 	; write the argument
 	u64.sub sp 8

@@ -143,27 +143,24 @@ namespace vm
 
 	struct Ext
 	{
-		bool is_ext;
 		ADDRESS_MODE address_mode;
 		bool is_shifted;
 		uint8_t reserved;
 		SCALE_MODE scale_mode;
 	};
 
-	constexpr inline uint8_t MASK_IS_EXT		= 0x80; // 1000_0000
-	constexpr inline uint8_t MASK_ADDRESS_MODE	= 0x60; // 0110_0000
-	constexpr inline uint8_t MASK_IS_SHIFTED	= 0x10; // 0001_0000
-	constexpr inline uint8_t MASK_RESERVED		= 0x0C; // 0000_1100
-	constexpr inline uint8_t MASK_SCALE_MODE	= 0x03; // 0000_0011
+	constexpr inline uint8_t MASK_ADDRESS_MODE	= 0b1100'0000;
+	constexpr inline uint8_t MASK_IS_SHIFTED	= 0b0010'0000;
+	constexpr inline uint8_t MASK_RESERVED		= 0b0001'1100;
+	constexpr inline uint8_t MASK_SCALE_MODE	= 0b0000'0011;
 
 	inline static Ext
 	ext_from_byte(uint8_t b)
 	{
 		Ext e{};
-		e.is_ext	   = bool(b & MASK_IS_EXT);
-		e.address_mode = ADDRESS_MODE((b & MASK_ADDRESS_MODE) >> 5);
+		e.address_mode = ADDRESS_MODE((b & MASK_ADDRESS_MODE) >> 6);
 		e.is_shifted   = bool(b & MASK_IS_SHIFTED);
-		e.reserved	   = uint8_t(b & MASK_RESERVED);
+		e.reserved	   = uint8_t(b & MASK_RESERVED) >> 2;
 		e.scale_mode   = SCALE_MODE(b & MASK_SCALE_MODE);
 		return e;
 	}
@@ -172,18 +169,9 @@ namespace vm
 	ext_to_byte(Ext e)
 	{
 		uint8_t b = 0;
-		b |= e.is_ext ? MASK_IS_EXT : 0;
-		b |= (uint8_t(e.address_mode) << 5) & MASK_ADDRESS_MODE;
+		b |= (uint8_t(e.address_mode) << 6) & MASK_ADDRESS_MODE;
 		b |= e.is_shifted ? MASK_IS_SHIFTED : 0;
 		b |= (uint8_t(e.scale_mode)) & MASK_SCALE_MODE;
 		return b;
-	}
-
-	inline static uint8_t
-	ext_default()
-	{
-		Ext e{};
-		e.is_ext = true;
-		return ext_to_byte(e);
 	}
 }

@@ -21,6 +21,12 @@ namespace vm
 		return Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
 	}
 
+	inline static Ext
+	pop_ext(Core& self)
+	{
+		return ext_from_byte(pop8(self.bytecode, self.r[Reg_IP].u64));
+	}
+
 	inline static Reg_Val&
 	load_reg(Core& self)
 	{
@@ -86,77 +92,71 @@ namespace vm
 	}
 
 	inline static uintptr_t
-	load_operand_uintptr(Core& self, Ext ext, size_t imm_size)
+	load_operand_uintptr(Core& self, size_t imm_size)
 	{
+		auto ext = pop_ext(self);
+
 		uintptr_t ptr = 0;
-		if (ext.is_ext == false)
+		switch(ext.address_mode)
+		{
+		case ADDRESS_MODE_REG:
 		{
 			auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
-			ptr = (uintptr_t)&self.r[R];
+			ptr = (uintptr_t)&self.r[R].u8;
+			break;
 		}
-		else
+		case ADDRESS_MODE_MEM:
 		{
-			switch(ext.address_mode)
+			auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
+			ptr = uintptr_t(self.r[R].ptr);
+			switch(ext.scale_mode)
 			{
-			case ADDRESS_MODE_REG:
-			{
-				auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
-				ptr = (uintptr_t)&self.r[R].u8;
-				break;
-			}
-			case ADDRESS_MODE_MEM:
-			{
-				auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
-				ptr = uintptr_t(self.r[R].ptr);
-				switch(ext.scale_mode)
-				{
-				case SCALE_MODE_1X: ptr *= 1; break;
-				case SCALE_MODE_2X: ptr *= 2; break;
-				case SCALE_MODE_4X: ptr *= 4; break;
-				case SCALE_MODE_8X: ptr *= 8; break;
-				default: assert(false && "unreachable"); break;
-				}
-
-				if(ext.is_shifted)
-				{
-					auto shift = pop64(self.bytecode, self.r[Reg_IP].u64);
-					ptr += shift;
-				}
-				break;
-			}
-			case ADDRESS_MODE_IMM:
-			{
-				ptr = uintptr_t(self.bytecode.ptr);
-				ptr += self.r[Reg_IP].u64;
-				self.r[Reg_IP].u64 += imm_size;
-				break;
-			}
+			case SCALE_MODE_1X: ptr *= 1; break;
+			case SCALE_MODE_2X: ptr *= 2; break;
+			case SCALE_MODE_4X: ptr *= 4; break;
+			case SCALE_MODE_8X: ptr *= 8; break;
 			default: assert(false && "unreachable"); break;
 			}
+
+			if(ext.is_shifted)
+			{
+				auto shift = pop64(self.bytecode, self.r[Reg_IP].u64);
+				ptr += shift;
+			}
+			break;
+		}
+		case ADDRESS_MODE_IMM:
+		{
+			ptr = uintptr_t(self.bytecode.ptr);
+			ptr += self.r[Reg_IP].u64;
+			self.r[Reg_IP].u64 += imm_size;
+			break;
+		}
+		default: assert(false && "unreachable"); break;
 		}
 		return ptr;
 	}
 
 	template<typename T>
 	inline static T*
-	load_operand(Core& self, Ext ext)
+	load_operand(Core& self)
 	{
 		if constexpr (std::is_same_v<T, uint8_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else if constexpr (std::is_same_v<T, int8_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else if constexpr (std::is_same_v<T, uint16_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else if constexpr (std::is_same_v<T, int16_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else if constexpr (std::is_same_v<T, uint32_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else if constexpr (std::is_same_v<T, int32_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else if constexpr (std::is_same_v<T, uint64_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else if constexpr (std::is_same_v<T, int64_t>)
-			return (T*)load_operand_uintptr(self, ext, sizeof(T));
+			return (T*)load_operand_uintptr(self, sizeof(T));
 		else
 			static_assert(sizeof(T) == 0, "unsupported operand type");
 	}
@@ -164,229 +164,210 @@ namespace vm
 	void
 	core_ins_execute(Core& self)
 	{
-		Op op = Op_IGL;
-
-		auto byte = pop8(self.bytecode, self.r[Reg_IP].u64);
-		Ext dst_ext = Ext{};
-		Ext src_ext = Ext{};
-		if(auto ext = ext_from_byte(byte); ext.is_ext)
-		{
-			dst_ext = ext;
-			src_ext = ext_from_byte(pop8(self.bytecode, self.r[Reg_IP].u64));
-			if(src_ext.is_ext == false)
-			{
-				self.state = Core::STATE_ERR;
-				return;
-			}
-			op = Op(pop8(self.bytecode, self.r[Reg_IP].u64));
-		}
-		else
-		{
-			op = Op(byte);
-		}
+		Op op = pop_op(self);
 
 		switch(op)
 		{
 		case Op_MOV8:
 		{
-			auto dst = load_operand<uint8_t>(self, dst_ext);
-			auto src = load_operand<uint8_t>(self, src_ext);
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
 			*dst = *src;
 			break;
 		}
 		case Op_MOV16:
 		{
-			auto dst = load_operand<uint16_t>(self, dst_ext);
-			auto src = load_operand<uint16_t>(self, src_ext);
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
 			*dst = *src;
 			break;
 		}
 		case Op_MOV32:
 		{
-			auto dst = load_operand<uint32_t>(self, dst_ext);
-			auto src = load_operand<uint32_t>(self, src_ext);
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
 			*dst = *src;
 			break;
 		}
 		case Op_MOV64:
 		{
-			auto dst = load_operand<uint64_t>(self, dst_ext);
-			auto src = load_operand<uint64_t>(self, src_ext);
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
 			*dst = *src;
 			break;
 		}
 		case Op_ADD8:
 		{
-			auto dst = load_operand<uint8_t>(self, dst_ext);
-			auto src = load_operand<uint8_t>(self, src_ext);
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
 			*dst += *src;
 			break;
 		}
 		case Op_ADD16:
 		{
-			auto dst = load_operand<uint16_t>(self, dst_ext);
-			auto src = load_operand<uint16_t>(self, src_ext);
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
 			*dst += *src;
 			break;
 		}
 		case Op_ADD32:
 		{
-			auto dst = load_operand<uint32_t>(self, dst_ext);
-			auto src = load_operand<uint32_t>(self, src_ext);
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
 			*dst += *src;
 			break;
 		}
 		case Op_ADD64:
 		{
-			auto dst = load_operand<uint64_t>(self, dst_ext);
-			auto src = load_operand<uint64_t>(self, src_ext);
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
 			*dst += *src;
 			break;
 		}
 		case Op_SUB8:
 		{
-			auto dst = load_operand<uint8_t>(self, dst_ext);
-			auto src = load_operand<uint8_t>(self, src_ext);
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
 			*dst -= *src;
 			break;
 		}
 		case Op_SUB16:
 		{
-			auto dst = load_operand<uint16_t>(self, dst_ext);
-			auto src = load_operand<uint16_t>(self, src_ext);
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
 			*dst -= *src;
 			break;
 		}
 		case Op_SUB32:
 		{
-			auto dst = load_operand<uint32_t>(self, dst_ext);
-			auto src = load_operand<uint32_t>(self, src_ext);
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
 			*dst -= *src;
 			break;
 		}
 		case Op_SUB64:
 		{
-			auto dst = load_operand<uint64_t>(self, dst_ext);
-			auto src = load_operand<uint64_t>(self, src_ext);
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
 			*dst -= *src;
 			break;
 		}
 		case Op_MUL8:
 		{
-			auto dst = load_operand<uint8_t>(self, dst_ext);
-			auto src = load_operand<uint8_t>(self, src_ext);
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_MUL16:
 		{
-			auto dst = load_operand<uint16_t>(self, dst_ext);
-			auto src = load_operand<uint16_t>(self, src_ext);
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_MUL32:
 		{
-			auto dst = load_operand<uint32_t>(self, dst_ext);
-			auto src = load_operand<uint32_t>(self, src_ext);
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_MUL64:
 		{
-			auto dst = load_operand<uint64_t>(self, dst_ext);
-			auto src = load_operand<uint64_t>(self, src_ext);
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_IMUL8:
 		{
-			auto dst = load_operand<int8_t>(self, dst_ext);
-			auto src = load_operand<int8_t>(self, src_ext);
+			auto dst = load_operand<int8_t>(self);
+			auto src = load_operand<int8_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_IMUL16:
 		{
-			auto dst = load_operand<int16_t>(self, dst_ext);
-			auto src = load_operand<int16_t>(self, src_ext);
+			auto dst = load_operand<int16_t>(self);
+			auto src = load_operand<int16_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_IMUL32:
 		{
-			auto dst = load_operand<int32_t>(self, dst_ext);
-			auto src = load_operand<int32_t>(self, src_ext);
+			auto dst = load_operand<int32_t>(self);
+			auto src = load_operand<int32_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_IMUL64:
 		{
-			auto dst = load_operand<int64_t>(self, dst_ext);
-			auto src = load_operand<int64_t>(self, src_ext);
+			auto dst = load_operand<int64_t>(self);
+			auto src = load_operand<int64_t>(self);
 			*dst *= *src;
 			break;
 		}
 		case Op_DIV8:
 		{
-			auto dst = load_operand<uint8_t>(self, dst_ext);
-			auto src = load_operand<uint8_t>(self, src_ext);
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_DIV16:
 		{
-			auto dst = load_operand<uint16_t>(self, dst_ext);
-			auto src = load_operand<uint16_t>(self, src_ext);
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_DIV32:
 		{
-			auto dst = load_operand<uint32_t>(self, dst_ext);
-			auto src = load_operand<uint32_t>(self, src_ext);
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_DIV64:
 		{
-			auto dst = load_operand<uint64_t>(self, dst_ext);
-			auto src = load_operand<uint64_t>(self, src_ext);
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_IDIV8:
 		{
-			auto dst = load_operand<int8_t>(self, dst_ext);
-			auto src = load_operand<int8_t>(self, src_ext);
+			auto dst = load_operand<int8_t>(self);
+			auto src = load_operand<int8_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_IDIV16:
 		{
-			auto dst = load_operand<int16_t>(self, dst_ext);
-			auto src = load_operand<int16_t>(self, src_ext);
+			auto dst = load_operand<int16_t>(self);
+			auto src = load_operand<int16_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_IDIV32:
 		{
-			auto dst = load_operand<int32_t>(self, dst_ext);
-			auto src = load_operand<int32_t>(self, src_ext);
+			auto dst = load_operand<int32_t>(self);
+			auto src = load_operand<int32_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_IDIV64:
 		{
-			auto dst = load_operand<int64_t>(self, dst_ext);
-			auto src = load_operand<int64_t>(self, src_ext);
+			auto dst = load_operand<int64_t>(self);
+			auto src = load_operand<int64_t>(self);
 			*dst /= *src;
 			break;
 		}
 		case Op_CMP8:
 		{
-			auto op1 = load_operand<uint8_t>(self, dst_ext);
-			auto op2 = load_operand<uint8_t>(self, src_ext);
+			auto op1 = load_operand<uint8_t>(self);
+			auto op2 = load_operand<uint8_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -397,8 +378,8 @@ namespace vm
 		}
 		case Op_CMP16:
 		{
-			auto op1 = load_operand<uint16_t>(self, dst_ext);
-			auto op2 = load_operand<uint16_t>(self, src_ext);
+			auto op1 = load_operand<uint16_t>(self);
+			auto op2 = load_operand<uint16_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -409,8 +390,8 @@ namespace vm
 		}
 		case Op_CMP32:
 		{
-			auto op1 = load_operand<uint32_t>(self, dst_ext);
-			auto op2 = load_operand<uint32_t>(self, src_ext);
+			auto op1 = load_operand<uint32_t>(self);
+			auto op2 = load_operand<uint32_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -421,8 +402,8 @@ namespace vm
 		}
 		case Op_CMP64:
 		{
-			auto op1 = load_operand<uint64_t>(self, dst_ext);
-			auto op2 = load_operand<uint64_t>(self, src_ext);
+			auto op1 = load_operand<uint64_t>(self);
+			auto op2 = load_operand<uint64_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -433,8 +414,8 @@ namespace vm
 		}
 		case Op_ICMP8:
 		{
-			auto op1 = load_operand<int8_t>(self, dst_ext);
-			auto op2 = load_operand<int8_t>(self, src_ext);
+			auto op1 = load_operand<int8_t>(self);
+			auto op2 = load_operand<int8_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -445,8 +426,8 @@ namespace vm
 		}
 		case Op_ICMP16:
 		{
-			auto op1 = load_operand<int16_t>(self, dst_ext);
-			auto op2 = load_operand<int16_t>(self, src_ext);
+			auto op1 = load_operand<int16_t>(self);
+			auto op2 = load_operand<int16_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -457,8 +438,8 @@ namespace vm
 		}
 		case Op_ICMP32:
 		{
-			auto op1 = load_operand<int32_t>(self, dst_ext);
-			auto op2 = load_operand<int32_t>(self, src_ext);
+			auto op1 = load_operand<int32_t>(self);
+			auto op2 = load_operand<int32_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -469,8 +450,8 @@ namespace vm
 		}
 		case Op_ICMP64:
 		{
-			auto op1 = load_operand<int64_t>(self, dst_ext);
-			auto op2 = load_operand<int64_t>(self, src_ext);
+			auto op1 = load_operand<int64_t>(self);
+			auto op2 = load_operand<int64_t>(self);
 			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
 			else if (*op1 < *op2)
@@ -481,48 +462,48 @@ namespace vm
 		}
 		case Op_JMP:
 		{
-			auto offset = load_operand<uint64_t>(self, dst_ext);
+			auto offset = load_operand<uint64_t>(self);
 			self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JE:
 		{
-			auto offset = load_operand<uint64_t>(self, dst_ext);
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_EQUAL)
 				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JNE:
 		{
-			auto offset = load_operand<uint64_t>(self, dst_ext);
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp != Core::CMP_EQUAL)
 				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JL:
 		{
-			auto offset = load_operand<uint64_t>(self, dst_ext);
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_LESS)
 				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JLE:
 		{
-			auto offset = load_operand<uint64_t>(self, dst_ext);
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_LESS || self.cmp == Core::CMP_EQUAL)
 				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JG:
 		{
-			auto offset = load_operand<uint64_t>(self, dst_ext);
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_GREATER)
 				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JGE:
 		{
-			auto offset = load_operand<uint64_t>(self, dst_ext);
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_GREATER || self.cmp == Core::CMP_EQUAL)
 				self.r[Reg_IP].u64 += *offset;
 			break;
@@ -530,7 +511,7 @@ namespace vm
 		case Op_PUSH:
 		{
 			auto& dst = self.r[Reg_SP];
-			auto  src = load_operand<uint64_t>(self, dst_ext);
+			auto  src = load_operand<uint64_t>(self);
 			auto ptr = ((uint64_t*)dst.ptr - 1);
 			if(valid_next_bytes(self, ptr, 8) == false)
 			{
@@ -543,7 +524,7 @@ namespace vm
 		}
 		case Op_POP:
 		{
-			auto  dst = load_operand<uint64_t>(self, dst_ext);
+			auto  dst = load_operand<uint64_t>(self);
 			auto& src = self.r[Reg_SP];
 			auto ptr = ((uint64_t*)src.ptr);
 			if(valid_next_bytes(self, ptr, 8) == false)
@@ -558,7 +539,7 @@ namespace vm
 		case Op_CALL:
 		{
 			// load proc address
-			auto  address = load_operand<uint64_t>(self, dst_ext);
+			auto  address = load_operand<uint64_t>(self);
 			// load stack pointer
 			auto& SP = self.r[Reg_SP];
 			// allocate space for return address
@@ -579,7 +560,7 @@ namespace vm
 		case Op_C_CALL:
 		{
 			// load c proc index
-			auto ix = *load_operand<uint64_t>(self, dst_ext);
+			auto ix = *load_operand<uint64_t>(self);
 			if(ix >= self.c_procs_desc.count)
 			{
 				self.state = Core::STATE_ERR;

@@ -12,7 +12,6 @@ namespace vm
 	imm_ext_byte()
 	{
 		Ext e{};
-		e.is_ext = true;
 		e.address_mode = ADDRESS_MODE_IMM;
 		return ext_to_byte(e);
 	}
@@ -21,7 +20,6 @@ namespace vm
 	mem_ext_byte(SCALE_MODE scale, uint64_t shift)
 	{
 		Ext e{};
-		e.is_ext = true;
 		e.address_mode = ADDRESS_MODE_MEM;
 		e.is_shifted = shift != 0;
 		e.scale_mode = scale;
@@ -187,24 +185,21 @@ namespace vm
 	inline static Ins_Op_Offsets
 	ins_push(mn::Buf<uint8_t>& code, Op opcode, Operand dst, Operand src)
 	{
-		auto dst_ext = op_ext(dst);
-		auto src_ext = op_ext(src);
-		if (dst_ext != 0 || src_ext != 0)
-		{
-			if (dst_ext == 0)
-				dst_ext = ext_default();
-			push8(code, dst_ext);
-
-			if (src_ext == 0)
-				src_ext = ext_default();
-			push8(code, src_ext);
-		}
-
 		Ins_Op_Offsets offsets{};
 
 		push8(code, opcode);
-		offsets.dst_offset = op_push(code, dst);
-		offsets.src_offset = op_push(code, src);
+
+		if (dst.kind != Operand::KIND_NONE)
+		{
+			push8(code, op_ext(dst));
+			offsets.dst_offset = op_push(code, dst);
+		}
+
+		if (src.kind != Operand::KIND_NONE)
+		{
+			push8(code, op_ext(src));
+			offsets.src_offset = op_push(code, src);
+		}
 		return offsets;
 	}
 }
