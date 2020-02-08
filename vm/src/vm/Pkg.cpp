@@ -8,6 +8,15 @@
 
 namespace vm
 {
+
+#if defined(OS_WINDOWS)
+	constexpr static auto CLIB = "msvcrt.dll";
+	constexpr static auto LIB_EXT = "dll";
+#elif defined(OS_LINUX)
+	constexpr static auto CLIB = "libc.so.6";
+	constexpr static auto LIB_EXT = "so";
+#endif
+
 	inline static void
 	_write64(uint8_t* ptr, uint64_t v)
 	{
@@ -312,11 +321,11 @@ namespace vm
 			{
 				if (cproc.lib == "C")
 				{
-					lib = mn::library_open("msvcrt.dll");
+					lib = mn::library_open(CLIB);
 				}
 				else
 				{
-					lib = mn::library_open(mn::str_tmpf("{}.{}", cproc.lib, "dll"));
+					lib = mn::library_open(mn::str_tmpf("{}.{}", cproc.lib, LIB_EXT));
 				}
 				if(lib == nullptr)
 					return mn::Err{"'{}' library not found", cproc.lib};
