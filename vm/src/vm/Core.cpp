@@ -21,6 +21,12 @@ namespace vm
 		return Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
 	}
 
+	inline static Ext
+	pop_ext(Core& self)
+	{
+		return ext_from_byte(pop8(self.bytecode, self.r[Reg_IP].u64));
+	}
+
 	inline static Reg_Val&
 	load_reg(Core& self)
 	{
@@ -85,379 +91,286 @@ namespace vm
 		destruct(self.c_procs_desc);
 	}
 
+	inline static uintptr_t
+	load_operand_uintptr(Core& self, size_t imm_size)
+	{
+		auto ext = pop_ext(self);
+
+		uintptr_t ptr = 0;
+		switch(ext.address_mode)
+		{
+		case ADDRESS_MODE_REG:
+		{
+			auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
+			ptr = (uintptr_t)&self.r[R].u8;
+			break;
+		}
+		case ADDRESS_MODE_MEM:
+		{
+			auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
+			ptr = uintptr_t(self.r[R].ptr);
+			switch(ext.scale_mode)
+			{
+			case SCALE_MODE_1X: ptr *= 1; break;
+			case SCALE_MODE_2X: ptr *= 2; break;
+			case SCALE_MODE_4X: ptr *= 4; break;
+			case SCALE_MODE_8X: ptr *= 8; break;
+			default: assert(false && "unreachable"); break;
+			}
+
+			if(ext.is_shifted)
+			{
+				auto shift = pop64(self.bytecode, self.r[Reg_IP].u64);
+				ptr += shift;
+			}
+			break;
+		}
+		case ADDRESS_MODE_IMM:
+		{
+			ptr = uintptr_t(self.bytecode.ptr);
+			ptr += self.r[Reg_IP].u64;
+			self.r[Reg_IP].u64 += imm_size;
+			break;
+		}
+		default: assert(false && "unreachable"); break;
+		}
+		return ptr;
+	}
+
+	template<typename T>
+	inline static T*
+	load_operand(Core& self)
+	{
+		if constexpr (std::is_same_v<T, uint8_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else if constexpr (std::is_same_v<T, int8_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else if constexpr (std::is_same_v<T, uint16_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else if constexpr (std::is_same_v<T, int16_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else if constexpr (std::is_same_v<T, uint32_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else if constexpr (std::is_same_v<T, int32_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else if constexpr (std::is_same_v<T, uint64_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else if constexpr (std::is_same_v<T, int64_t>)
+			return (T*)load_operand_uintptr(self, sizeof(T));
+		else
+			static_assert(sizeof(T) == 0, "unsupported operand type");
+	}
+
 	void
 	core_ins_execute(Core& self)
 	{
-		auto op = pop_op(self);
+		Op op = pop_op(self);
+
 		switch(op)
 		{
-		case Op_LOAD8:
+		case Op_MOV8:
 		{
-			auto& dst = load_reg(self);
-			dst.u8 = pop8(self.bytecode, self.r[Reg_IP].u64);
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
+			*dst = *src;
 			break;
 		}
-		case Op_LOAD16:
+		case Op_MOV16:
 		{
-			auto& dst = load_reg(self);
-			dst.u16 = pop16(self.bytecode, self.r[Reg_IP].u64);
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
+			*dst = *src;
 			break;
 		}
-		case Op_LOAD32:
+		case Op_MOV32:
 		{
-			auto& dst = load_reg(self);
-			dst.u32 = pop32(self.bytecode, self.r[Reg_IP].u64);
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
+			*dst = *src;
 			break;
 		}
-		case Op_LOAD64:
+		case Op_MOV64:
 		{
-			auto& dst = load_reg(self);
-			dst.u64 = pop64(self.bytecode, self.r[Reg_IP].u64);
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
+			*dst = *src;
 			break;
 		}
 		case Op_ADD8:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u8 += src.u8;
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
+			*dst += *src;
 			break;
 		}
 		case Op_ADD16:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u16 += src.u16;
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
+			*dst += *src;
 			break;
 		}
 		case Op_ADD32:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u32 += src.u32;
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
+			*dst += *src;
 			break;
 		}
 		case Op_ADD64:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u64 += src.u64;
-			break;
-		}
-		case Op_IMMADD8:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop8(self.bytecode, self.r[Reg_IP].u64);
-			dst.u8 += imm;
-			break;
-		}
-		case Op_IMMADD16:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop16(self.bytecode, self.r[Reg_IP].u64);
-			dst.u16 += imm;
-			break;
-		}
-		case Op_IMMADD32:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop32(self.bytecode, self.r[Reg_IP].u64);
-			dst.u32 += imm;
-			break;
-		}
-		case Op_IMMADD64:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop64(self.bytecode, self.r[Reg_IP].u64);
-			dst.u64 += imm;
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
+			*dst += *src;
 			break;
 		}
 		case Op_SUB8:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u8 -= src.u8;
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
+			*dst -= *src;
 			break;
 		}
 		case Op_SUB16:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u16 -= src.u16;
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
+			*dst -= *src;
 			break;
 		}
 		case Op_SUB32:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u32 -= src.u32;
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
+			*dst -= *src;
 			break;
 		}
 		case Op_SUB64:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u64 -= src.u64;
-			break;
-		}
-		case Op_IMMSUB8:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop8(self.bytecode, self.r[Reg_IP].u64);
-			dst.u8 -= imm;
-			break;
-		}
-		case Op_IMMSUB16:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop16(self.bytecode, self.r[Reg_IP].u64);
-			dst.u16 -= imm;
-			break;
-		}
-		case Op_IMMSUB32:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop32(self.bytecode, self.r[Reg_IP].u64);
-			dst.u32 -= imm;
-			break;
-		}
-		case Op_IMMSUB64:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop64(self.bytecode, self.r[Reg_IP].u64);
-			dst.u64 -= imm;
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
+			*dst -= *src;
 			break;
 		}
 		case Op_MUL8:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u8 *= src.u8;
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_MUL16:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u16 *= src.u16;
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_MUL32:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u32 *= src.u32;
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_MUL64:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u64 *= src.u64;
-			break;
-		}
-		case Op_IMMMUL8:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop8(self.bytecode, self.r[Reg_IP].u64);
-			dst.u8 *= imm;
-			break;
-		}
-		case Op_IMMMUL16:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop16(self.bytecode, self.r[Reg_IP].u64);
-			dst.u16 *= imm;
-			break;
-		}
-		case Op_IMMMUL32:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop32(self.bytecode, self.r[Reg_IP].u64);
-			dst.u32 *= imm;
-			break;
-		}
-		case Op_IMMMUL64:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop64(self.bytecode, self.r[Reg_IP].u64);
-			dst.u64 *= imm;
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_IMUL8:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i8 *= src.i8;
+			auto dst = load_operand<int8_t>(self);
+			auto src = load_operand<int8_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_IMUL16:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i16 *= src.i16;
+			auto dst = load_operand<int16_t>(self);
+			auto src = load_operand<int16_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_IMUL32:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i32 *= src.i32;
+			auto dst = load_operand<int32_t>(self);
+			auto src = load_operand<int32_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_IMUL64:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i64 *= src.i64;
-			break;
-		}
-		case Op_IMMIMUL8:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int8_t(pop8(self.bytecode, self.r[Reg_IP].u64));
-			dst.i8 *= imm;
-			break;
-		}
-		case Op_IMMIMUL16:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int16_t(pop16(self.bytecode, self.r[Reg_IP].u64));
-			dst.i16 *= imm;
-			break;
-		}
-		case Op_IMMIMUL32:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int32_t(pop32(self.bytecode, self.r[Reg_IP].u64));
-			dst.i32 *= imm;
-			break;
-		}
-		case Op_IMMIMUL64:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
-			dst.i64 *= imm;
+			auto dst = load_operand<int64_t>(self);
+			auto src = load_operand<int64_t>(self);
+			*dst *= *src;
 			break;
 		}
 		case Op_DIV8:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u8 /= src.u8;
+			auto dst = load_operand<uint8_t>(self);
+			auto src = load_operand<uint8_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_DIV16:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u16 /= src.u16;
+			auto dst = load_operand<uint16_t>(self);
+			auto src = load_operand<uint16_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_DIV32:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u32 /= src.u32;
+			auto dst = load_operand<uint32_t>(self);
+			auto src = load_operand<uint32_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_DIV64:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.u64 /= src.u64;
-			break;
-		}
-		case Op_IMMDIV8:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop8(self.bytecode, self.r[Reg_IP].u64);
-			dst.u8 /= imm;
-			break;
-		}
-		case Op_IMMDIV16:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop16(self.bytecode, self.r[Reg_IP].u64);
-			dst.u16 /= imm;
-			break;
-		}
-		case Op_IMMDIV32:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop32(self.bytecode, self.r[Reg_IP].u64);
-			dst.u32 /= imm;
-			break;
-		}
-		case Op_IMMDIV64:
-		{
-			auto& dst = load_reg(self);
-			auto imm = pop64(self.bytecode, self.r[Reg_IP].u64);
-			dst.u64 /= imm;
+			auto dst = load_operand<uint64_t>(self);
+			auto src = load_operand<uint64_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_IDIV8:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i8 /= src.i8;
+			auto dst = load_operand<int8_t>(self);
+			auto src = load_operand<int8_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_IDIV16:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i16 /= src.i16;
+			auto dst = load_operand<int16_t>(self);
+			auto src = load_operand<int16_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_IDIV32:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i32 /= src.i32;
+			auto dst = load_operand<int32_t>(self);
+			auto src = load_operand<int32_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_IDIV64:
 		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			dst.i64 /= src.i64;
-			break;
-		}
-		case Op_IMMIDIV8:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int8_t(pop8(self.bytecode, self.r[Reg_IP].u64));
-			dst.i8 /= imm;
-			break;
-		}
-		case Op_IMMIDIV16:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int16_t(pop16(self.bytecode, self.r[Reg_IP].u64));
-			dst.i16 /= imm;
-			break;
-		}
-		case Op_IMMIDIV32:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int32_t(pop32(self.bytecode, self.r[Reg_IP].u64));
-			dst.i32 /= imm;
-			break;
-		}
-		case Op_IMMIDIV64:
-		{
-			auto& dst = load_reg(self);
-			auto imm = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
-			dst.i64 /= imm;
+			auto dst = load_operand<int64_t>(self);
+			auto src = load_operand<int64_t>(self);
+			*dst /= *src;
 			break;
 		}
 		case Op_CMP8:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.u8 > op2.u8)
+			auto op1 = load_operand<uint8_t>(self);
+			auto op2 = load_operand<uint8_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.u8 < op2.u8)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -465,11 +378,11 @@ namespace vm
 		}
 		case Op_CMP16:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.u16 > op2.u16)
+			auto op1 = load_operand<uint16_t>(self);
+			auto op2 = load_operand<uint16_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.u16 < op2.u16)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -477,11 +390,11 @@ namespace vm
 		}
 		case Op_CMP32:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.u32 > op2.u32)
+			auto op1 = load_operand<uint32_t>(self);
+			auto op2 = load_operand<uint32_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.u32 < op2.u32)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -489,59 +402,11 @@ namespace vm
 		}
 		case Op_CMP64:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.u64 > op2.u64)
+			auto op1 = load_operand<uint64_t>(self);
+			auto op2 = load_operand<uint64_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.u64 < op2.u64)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMCMP8:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = pop8(self.bytecode, self.r[Reg_IP].u64);
-			if (op1.u8 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.u8 < imm)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMCMP16:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = pop16(self.bytecode, self.r[Reg_IP].u64);
-			if (op1.u16 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.u16 < imm)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMCMP32:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = pop32(self.bytecode, self.r[Reg_IP].u64);
-			if (op1.u32 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.u32 < imm)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMCMP64:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = pop64(self.bytecode, self.r[Reg_IP].u64);
-			if (op1.u64 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.u64 < imm)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -549,11 +414,11 @@ namespace vm
 		}
 		case Op_ICMP8:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.i8 > op2.i8)
+			auto op1 = load_operand<int8_t>(self);
+			auto op2 = load_operand<int8_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.i8 < op2.i8)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -561,11 +426,11 @@ namespace vm
 		}
 		case Op_ICMP16:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.i16 > op2.i16)
+			auto op1 = load_operand<int16_t>(self);
+			auto op2 = load_operand<int16_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.i16 < op2.i16)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -573,11 +438,11 @@ namespace vm
 		}
 		case Op_ICMP32:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.i32 > op2.i32)
+			auto op1 = load_operand<int32_t>(self);
+			auto op2 = load_operand<int32_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.i32 < op2.i32)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -585,59 +450,11 @@ namespace vm
 		}
 		case Op_ICMP64:
 		{
-			auto& op1 = load_reg(self);
-			auto& op2 = load_reg(self);
-			if (op1.i64 > op2.i64)
+			auto op1 = load_operand<int64_t>(self);
+			auto op2 = load_operand<int64_t>(self);
+			if (*op1 > *op2)
 				self.cmp = Core::CMP_GREATER;
-			else if (op1.i64 < op2.i64)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMICMP8:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = int8_t(pop8(self.bytecode, self.r[Reg_IP].u64));
-			if (op1.i8 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.i8 < imm)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMICMP16:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = int16_t(pop16(self.bytecode, self.r[Reg_IP].u64));
-			if (op1.i16 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.i16 < imm)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMICMP32:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = int32_t(pop32(self.bytecode, self.r[Reg_IP].u64));
-			if (op1.i32 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.i32 < imm)
-				self.cmp = Core::CMP_LESS;
-			else
-				self.cmp = Core::CMP_EQUAL;
-			break;
-		}
-		case Op_IMMICMP64:
-		{
-			auto& op1 = load_reg(self);
-			auto imm = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
-			if (op1.i64 > imm)
-				self.cmp = Core::CMP_GREATER;
-			else if (op1.i64 < imm)
+			else if (*op1 < *op2)
 				self.cmp = Core::CMP_LESS;
 			else
 				self.cmp = Core::CMP_EQUAL;
@@ -645,177 +462,69 @@ namespace vm
 		}
 		case Op_JMP:
 		{
-			int64_t offset = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
-			self.r[Reg_IP].u64 += offset;
+			auto offset = load_operand<uint64_t>(self);
+			self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JE:
 		{
-			int64_t offset = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_EQUAL)
-			{
-				self.r[Reg_IP].u64 += offset;
-			}
+				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JNE:
 		{
-			int64_t offset = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp != Core::CMP_EQUAL)
-			{
-				self.r[Reg_IP].u64 += offset;
-			}
+				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JL:
 		{
-			int64_t offset = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_LESS)
-			{
-				self.r[Reg_IP].u64 += offset;
-			}
+				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JLE:
 		{
-			int64_t offset = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_LESS || self.cmp == Core::CMP_EQUAL)
-			{
-				self.r[Reg_IP].u64 += offset;
-			}
+				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JG:
 		{
-			int64_t offset = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_GREATER)
-			{
-				self.r[Reg_IP].u64 += offset;
-			}
+				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_JGE:
 		{
-			int64_t offset = int64_t(pop64(self.bytecode, self.r[Reg_IP].u64));
+			auto offset = load_operand<uint64_t>(self);
 			if (self.cmp == Core::CMP_GREATER || self.cmp == Core::CMP_EQUAL)
-			{
-				self.r[Reg_IP].u64 += offset;
-			}
-			break;
-		}
-		case Op_READ8:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, src.ptr, sizeof(uint8_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			dst.u8 = *(uint8_t*)src.ptr;
-			break;
-		}
-		case Op_READ16:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, src.ptr, sizeof(uint16_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			dst.u16 = *(uint16_t*)src.ptr;
-			break;
-		}
-		case Op_READ32:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, src.ptr, sizeof(uint32_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			dst.u32 = *(uint32_t*)src.ptr;
-			break;
-		}
-		case Op_READ64:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, src.ptr, sizeof(uint64_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			dst.u64 = *(uint64_t*)src.ptr;
-			break;
-		}
-		case Op_WRITE8:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, dst.ptr, sizeof(uint8_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			*(uint8_t*)dst.ptr = src.u8;
-			break;
-		}
-		case Op_WRITE16:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, dst.ptr, sizeof(uint16_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			*(uint16_t*)dst.ptr = src.u16;
-			break;
-		}
-		case Op_WRITE32:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, dst.ptr, sizeof(uint32_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			*(uint32_t*)dst.ptr = src.u32;
-			break;
-		}
-		case Op_WRITE64:
-		{
-			auto& dst = load_reg(self);
-			auto& src = load_reg(self);
-			if(valid_next_bytes(self, dst.ptr, sizeof(uint64_t)) == false)
-			{
-				self.state = Core::STATE_ERR;
-				break;
-			}
-			*(uint64_t*)dst.ptr = src.u64;
+				self.r[Reg_IP].u64 += *offset;
 			break;
 		}
 		case Op_PUSH:
 		{
 			auto& dst = self.r[Reg_SP];
-			auto& src = load_reg(self);
+			auto  src = load_operand<uint64_t>(self);
 			auto ptr = ((uint64_t*)dst.ptr - 1);
 			if(valid_next_bytes(self, ptr, 8) == false)
 			{
 				self.state = Core::STATE_ERR;
 				break;
 			}
-			*ptr = src.u64;
+			*ptr = *src;
 			dst.ptr = ptr;
 			break;
 		}
 		case Op_POP:
 		{
-			auto& dst = load_reg(self);
+			auto  dst = load_operand<uint64_t>(self);
 			auto& src = self.r[Reg_SP];
 			auto ptr = ((uint64_t*)src.ptr);
 			if(valid_next_bytes(self, ptr, 8) == false)
@@ -823,14 +532,14 @@ namespace vm
 				self.state = Core::STATE_ERR;
 				break;
 			}
-			dst.u64 = *ptr;
+			*dst = *ptr;
 			src.ptr = ptr + 1;
 			break;
 		}
 		case Op_CALL:
 		{
 			// load proc address
-			auto address = pop64(self.bytecode, self.r[Reg_IP].u64);
+			auto  address = load_operand<uint64_t>(self);
 			// load stack pointer
 			auto& SP = self.r[Reg_SP];
 			// allocate space for return address
@@ -845,13 +554,13 @@ namespace vm
 			// move the stack pointer
 			SP.ptr = ptr;
 			// jump to proc address
-			self.r[Reg_IP].u64 = address;
+			self.r[Reg_IP].u64 = *address;
 			break;
 		}
 		case Op_C_CALL:
 		{
 			// load c proc index
-			auto ix = pop64(self.bytecode, self.r[Reg_IP].u64);
+			auto ix = *load_operand<uint64_t>(self);
 			if(ix >= self.c_procs_desc.count)
 			{
 				self.state = Core::STATE_ERR;
@@ -923,12 +632,6 @@ namespace vm
 			self.r[Reg_IP].u64 = *ptr;
 			// deallocate the space for return address
 			SP.ptr = ptr;
-			break;
-		}
-		case Op_DEBUGSTR:
-		{
-			auto& str_address = load_reg(self);
-			mn::print("DEBUG: '{}'\n", (const char*)str_address.ptr);
 			break;
 		}
 		case Op_HALT:
