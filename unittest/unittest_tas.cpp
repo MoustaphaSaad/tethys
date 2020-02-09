@@ -343,7 +343,6 @@ TEST_CASE("parse: constant debugstr")
 
 	proc main
 		u64.load r1 msg
-		debugstr r1
 		halt
 	end
 	)""");
@@ -352,7 +351,6 @@ TEST_CASE("parse: constant debugstr")
 constant msg "Hello, World!\0"
 PROC main
   u64.load r1 msg
-  INVALID OP
   halt
 END
 )""";
