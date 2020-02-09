@@ -117,14 +117,11 @@ namespace vm
 	};
 
 	// EXT = 0123 4567
-	// EXT[0] = indicates this is an extension
-	// EXT[1, 2] = addressing mode, choose from [reg, imm, mem]
-	// EXT[3] = shifted addressing mode
-	// EXT[4, 5] = reserved bits -> always 0
+	// EXT[0, 1] = addressing mode, choose from [reg, imm, mem]
+	// EXT[2] = shifted addressing mode
+	// EXT[3, 4, 5] = reserved bits -> always 0
 	// EXT[6, 7] = scale mode, choose from [1, 2, 4, 8] scaling
-	// default addressing mode is registers if you want to change that
-	// add two extension bytes before the opcode itself, [dst ext] [src ext] [opcode] [dst] [src]
-	// for default addressing mode you omit the extension bytes [opcode] [dst] [src]
+	// add two extension bytes before each operand, [opcode] [dst ext] [dst] [src ext] [src]
 
 	enum ADDRESS_MODE: uint8_t
 	{

@@ -4199,3 +4199,425 @@ pkg_core_load(const Pkg& self, Core& core, uint64_t stack_size_in_bytes)
 
 and that's it for today, nothing too exciting but it's necessary to do this kind of cleanup to make
 room for new code
+
+### Day-22
+
+Today is a big day, we'll add address mode support in our vm.
+
+#### Address modes
+
+Address modes is just a description of the dst and src operands, they can be registers, memory, or immediate values
+
+For example, we had a `load`, and `read` opcode, one is used for immediate values and the other is used for memory, when we have address modes we can have a single `mov` instruction which will work with memory and immediate values and even registers
+
+We'll do that by adding an extension byte before each dst and src operand, so our instructions will be in this format
+`[opcode] [dst_extension_byte] [dst_operand] [src_extension_byte] [src_operand]`
+
+Let's check how we could implement `load` using the new address modes
+`[mov] [register mode] [register number] [immediate mode] [immediate value]`
+and `read` will be
+`[mov] [register mode] [register number] [memory mode] [memory address in a register]`
+
+this is awesome because now we can cut the instruction count in half, let's do it
+
+first let's define our data
+```C++
+// EXT = 0123 4567
+// EXT[0, 1] = addressing mode, choose from [reg, imm, mem]
+// EXT[2] = shifted addressing mode
+// EXT[3, 4, 5] = reserved bits -> always 0
+// EXT[6, 7] = scale mode, choose from [1, 2, 4, 8] scaling
+// add two extension bytes before each operand, [opcode] [dst ext] [dst] [src ext] [src]
+
+enum ADDRESS_MODE: uint8_t
+{
+	ADDRESS_MODE_REG,
+	ADDRESS_MODE_IMM,
+	ADDRESS_MODE_MEM,
+};
+
+enum SCALE_MODE: uint8_t
+{
+	SCALE_MODE_1X,
+	SCALE_MODE_2X,
+	SCALE_MODE_4X,
+	SCALE_MODE_8X,
+};
+
+struct Ext
+{
+	ADDRESS_MODE address_mode;
+	bool is_shifted;
+	uint8_t reserved;
+	SCALE_MODE scale_mode;
+};
+
+constexpr inline uint8_t MASK_ADDRESS_MODE	= 0b1100'0000;
+constexpr inline uint8_t MASK_IS_SHIFTED	= 0b0010'0000;
+constexpr inline uint8_t MASK_RESERVED		= 0b0001'1100;
+constexpr inline uint8_t MASK_SCALE_MODE	= 0b0000'0011;
+
+inline static Ext
+ext_from_byte(uint8_t b)
+{
+	Ext e{};
+	e.address_mode = ADDRESS_MODE((b & MASK_ADDRESS_MODE) >> 6);
+	e.is_shifted   = bool(b & MASK_IS_SHIFTED);
+	e.reserved	   = uint8_t(b & MASK_RESERVED) >> 2;
+	e.scale_mode   = SCALE_MODE(b & MASK_SCALE_MODE);
+	return e;
+}
+
+inline static uint8_t
+ext_to_byte(Ext e)
+{
+	uint8_t b = 0;
+	b |= (uint8_t(e.address_mode) << 6) & MASK_ADDRESS_MODE;
+	b |= e.is_shifted ? MASK_IS_SHIFTED : 0;
+	b |= (uint8_t(e.scale_mode)) & MASK_SCALE_MODE;
+	return b;
+}
+```
+you'll notice that we have another thing called scale mode and shifting this will be used in the future for C like expressions support, for example when write the a simple C expression like this
+```C
+// Type your code here, or load an example.
+typedef struct Foo
+{
+    int x;
+    int y;
+};
+
+int access(struct Foo* n, int i) {
+    return n[i].y; // this is the interesting experssion
+}
+```
+this will be translated into the following assembly
+```asm
+mov eax, dword ptr [rax + 8*rcx + 4]
+```
+which indexes into the `rax` with an index stored in `rcx` then it scales this index with `8` which is the size of `Foo` to skip the first `i` elements in the array then it adds another `4` since we return the y member
+
+this might seem complicated but you can ignore it for now, and we'll implment it later
+
+now that we have extension bytes ready let's go to the vm cpu part
+
+#### VM
+In VM we'll need to interpret each operand as dictated by the extension bytes, let's do it
+
+```C++
+inline static uintptr_t
+load_operand_uintptr(Core& self, size_t imm_size)
+{
+	// read the extension byte
+	auto ext = pop_ext(self);
+
+	uintptr_t ptr = 0;
+	switch(ext.address_mode)
+	{
+	// this operand is a register
+	case ADDRESS_MODE_REG:
+	{
+		auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
+		ptr = (uintptr_t)&self.r[R].u8;
+		break;
+	}
+	// this operand is a memory address
+	case ADDRESS_MODE_MEM:
+	{
+		// read the register that contains the address
+		auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
+		ptr = uintptr_t(self.r[R].ptr);
+		// perform the scaling of this address
+		switch(ext.scale_mode)
+		{
+		case SCALE_MODE_1X: ptr *= 1; break;
+		case SCALE_MODE_2X: ptr *= 2; break;
+		case SCALE_MODE_4X: ptr *= 4; break;
+		case SCALE_MODE_8X: ptr *= 8; break;
+		default: assert(false && "unreachable"); break;
+		}
+
+		// add the shift value to the address
+		if(ext.is_shifted)
+		{
+			auto shift = pop64(self.bytecode, self.r[Reg_IP].u64);
+			ptr += shift;
+		}
+		break;
+	}
+	// this operand is an immediate value
+	case ADDRESS_MODE_IMM:
+	{
+		ptr = uintptr_t(self.bytecode.ptr);
+		ptr += self.r[Reg_IP].u64;
+		self.r[Reg_IP].u64 += imm_size;
+		break;
+	}
+	default: assert(false && "unreachable"); break;
+	}
+	return ptr;
+}
+
+// this is a simple function to cast the result to an appropriate pointer
+template<typename T>
+inline static T*
+load_operand(Core& self)
+{
+	if constexpr (std::is_same_v<T, uint8_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else if constexpr (std::is_same_v<T, int8_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else if constexpr (std::is_same_v<T, uint16_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else if constexpr (std::is_same_v<T, int16_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else if constexpr (std::is_same_v<T, uint32_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else if constexpr (std::is_same_v<T, int32_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else if constexpr (std::is_same_v<T, uint64_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else if constexpr (std::is_same_v<T, int64_t>)
+		return (T*)load_operand_uintptr(self, sizeof(T));
+	else
+		static_assert(sizeof(T) == 0, "unsupported operand type");
+}
+```
+
+now implementing an instruction is simple
+```C++
+void
+core_ins_execute(Core& self)
+{
+	Op op = pop_op(self);
+
+	switch(op)
+	{
+	...
+	case Op_MOV32:
+	{
+		auto dst = load_operand<uint32_t>(self);
+		auto src = load_operand<uint32_t>(self);
+		*dst = *src;
+		break;
+	}
+	...
+	case Op_ADD32:
+	{
+		auto dst = load_operand<uint32_t>(self);
+		auto src = load_operand<uint32_t>(self);
+		*dst += *src;
+		break;
+	}
+	...
+}
+```
+
+and that's it for the vm core itself, now pushing instructions is not that easy let's make a function that will help us by just taking a simple instruction and handling the opcode, extension bytes, and everything for us
+
+first let's define our operands
+```C++
+struct Operand
+{
+	enum KIND
+	{
+		KIND_NONE,
+		KIND_REG,
+		KIND_IMM8,
+		KIND_IMM16,
+		KIND_IMM32,
+		KIND_IMM64,
+		KIND_MEM,
+	};
+
+	KIND kind;
+	union
+	{
+		Reg reg;
+		uint8_t imm8;
+		uint16_t imm16;
+		uint32_t imm32;
+		uint64_t imm64;
+		struct
+		{
+			Reg reg;
+			SCALE_MODE scale;
+			uint64_t shift;
+		} mem;
+	};
+};
+
+inline static uint8_t
+op_ext(Operand op)
+{
+	switch(op.kind)
+	{
+	case Operand::KIND_NONE:
+	case Operand::KIND_REG:
+	// register mode is the default so we return 0 byte
+		return 0;
+	case Operand::KIND_IMM8:
+	case Operand::KIND_IMM16:
+	case Operand::KIND_IMM32:
+	case Operand::KIND_IMM64:
+	{
+		// change the address mode
+		Ext e{};
+		e.address_mode = ADDRESS_MODE_IMM;
+		return ext_to_byte(e);
+	}
+	case Operand::KIND_MEM:
+	{
+		Ext e{};
+		// change the address mode and the scale mode
+		e.address_mode = ADDRESS_MODE_MEM;
+		e.is_shifted = op.mem.shift != 0;
+		e.scale_mode = op.mem.scale;
+		return ext_to_byte(e);
+	}
+	default:
+		assert(false && "unreachable");
+		return 0;
+	}
+}
+
+inline static uint64_t
+op_push(mn::Buf<uint8_t>& code, Operand op)
+{
+	uint64_t offset = 0;
+	switch(op.kind)
+	{
+	case Operand::KIND_NONE:
+		// do nothing
+		break;
+	case Operand::KIND_REG:
+		offset = code.count;
+		push8(code, op.reg);
+		break;
+	case Operand::KIND_IMM8:
+		offset = code.count;
+		push8(code, op.imm8);
+		break;
+	case Operand::KIND_IMM16:
+		offset = code.count;
+		push16(code, op.imm16);
+		break;
+	case Operand::KIND_IMM32:
+		offset = code.count;
+		push32(code, op.imm32);
+		break;
+	case Operand::KIND_IMM64:
+		offset = code.count;
+		push64(code, op.imm64);
+		break;
+	case Operand::KIND_MEM:
+		offset = code.count;
+		push8(code, op.mem.reg);
+		if(op.mem.shift != 0) push64(code, op.mem.shift);
+		break;
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+	return offset;
+}
+
+struct Ins_Op_Offsets
+{
+	uint64_t dst_offset;
+	uint64_t src_offset;
+};
+
+inline static Ins_Op_Offsets
+ins_push(mn::Buf<uint8_t>& code, Op opcode, Operand dst, Operand src)
+{
+	Ins_Op_Offsets offsets{};
+
+	// first push the opcode
+	push8(code, opcode);
+
+	// then push the dst operand if it exists
+	if (dst.kind != Operand::KIND_NONE)
+	{
+		// first push the extension byte
+		push8(code, op_ext(dst));
+		// then push the dst itself
+		offsets.dst_offset = op_push(code, dst);
+	}
+
+	// then push src operand if it exists
+	if (src.kind != Operand::KIND_NONE)
+	{
+		// first push the extension byte
+		push8(code, op_ext(src));
+		// then push the src itself
+		offsets.src_offset = op_push(code, src);
+	}
+	// we return the offsets of the dst and src operands so we can use them in the assembler for address patching
+	return offsets;
+}
+```
+
+#### Assembler
+
+Now all that's left is to change the assembler front-end to use the new code generation that's provided by the VM, let's do it
+
+```C++
+inline static void
+emitter_ins_gen(Emitter& self, const Ins& ins, const Proc& proc, vm::Pkg& pkg)
+{
+	switch(ins.op.kind)
+	{
+	...
+	case Tkn::KIND_KEYWORD_U64_LOAD:
+	{
+		// construct a register dst operand
+		auto dst = vm::op_reg(tkn_to_reg(ins.dst));
+		// depending on the user input the src operand could be an immediate value or a constant
+		auto src = vm::Operand{};
+		if(ins.src.kind == Tkn::KIND_ID)
+		{
+			// in case of constant we put the 0 value
+			src = vm::op_imm(uint64_t(0));
+			// push the instruction
+			auto [dst_offset, src_offset] = vm::ins_push(self.out, vm::Op_MOV64, dst, src);
+			// add a relocation request with the correct offset
+			vm::pkg_reloc_add(
+				pkg,
+				mn::str_lit(proc.name.str),
+				src_offset,
+				mn::str_lit(ins.src.str)
+			);
+		}
+		else
+		{
+			// normal immediate src operand
+			src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			// push the instruction
+			vm::ins_push(self.out, vm::Op_MOV64, dst, src);
+		}
+		break;
+	}
+	...
+	case Tkn::KIND_KEYWORD_U64_ADD:
+	{
+		// prepare the dst register operand
+		auto dst = vm::op_reg(tkn_to_reg(ins.dst));
+		// src operand can be either a register or an immediate value
+		auto src = vm::Operand{};
+		if (is_reg(ins.src.kind))
+			src = vm::op_reg(tkn_to_reg(ins.src));
+		else
+			src = vm::op_imm(convert_to<uint64_t>(ins.src));
+		// push the instruction
+		vm::ins_push(self.out, vm::Op_ADD64, dst, src);
+		break;
+	}
+	...
+}
+```
+
+and that's it, now we have a working VM which supports addressing modes.
+as i've said above this change reduce the opcode count by half, check the Day-22 branch for more details
+
+So far we've only changed the vm and left the assembler front-end as is. Next we'll change the assembler and remove redundant instructions like `load` and `read`.
