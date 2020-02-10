@@ -4658,7 +4658,8 @@ v.y; // this is the interesting expression
 ```
 i think we can map this expression to something like
 `i32.mov r2 r0+4`
-and this will be our shifted access and of course you can combine the two like when you need to access an array of `vec3`
+and this will be our shifted access and of course you can combine the two like when you need to access an array of `vec3` like
+
 `array[i].z`
 which should be mapped to
 `i32.mov r2 r0[r1]+8`
