@@ -4621,3 +4621,46 @@ and that's it, now we have a working VM which supports addressing modes.
 as i've said above this change reduce the opcode count by half, check the Day-22 branch for more details
 
 So far we've only changed the vm and left the assembler front-end as is. Next we'll change the assembler and remove redundant instructions like `load` and `read`.
+
+### Day-23
+
+Today we'll do a bit of thinking, how should we represent the address modes in text form.
+
+let's analyze the most verstile instruction we'll add the `mov` instruction
+
+`i32.mov r0 -2`
+this will move an immediate value to the r0 register (register immediate mov)
+
+`i32.mov r0 r1`
+this will move the i32 part of r1 to the i32 part of r0 (register register mov)
+
+`i32.mov r0 [r1]`
+this will move an i32 from the address inside r1 into the r0 register (register memory mov), a.k.a. memory read instruction
+
+`i32.mov [r0] r1`
+this will move the i32 part of r1 into the memory address that's inside r0 register (memory register mov), a.k.a. memory write instruction
+
+`i32.mov [r0] [r1]`
+this will move an i32 from r1 memory address to the r0 memory address (memory memory mov), a.k.a. memory read/write (copy) instruction
+
+as you can see this is a very verstile instruction, let's now think about some usage like memory indexing
+`array[i]`
+how will we map this expression to our assembly?, let's say we have the base pointer `array` inside the `r0` register, and we have the index `i` inside the `r1` register
+`i32.mov r2 r0[r1]`
+i think this is a good way to index into the array
+
+what should we do about shifted access into some struct?
+```C
+struct vec3 { int x, y, z; };
+
+struct vec3 v = {1, 2, 3};
+v.y; // this is the interesting expression
+```
+i think we can map this expression to something like
+`i32.mov r2 r0+4`
+and this will be our shifted access and of course you can combine the two like when you need to access an array of `vec3`
+`array[i].z`
+which should be mapped to
+`i32.mov r2 r0[r1]+8`
+
+i think this is good enough for our current needs, we can start adding them to our assembler in the next day.
