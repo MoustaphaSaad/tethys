@@ -333,7 +333,12 @@ namespace as
 	{
 		mn::print_to(out, "PROC {}\n", proc->name.str);
 		for(const auto& ins: proc->ins)
-			mn::print_to(out, "  {}\n", ins);
+		{
+			if(ins.op.kind == Tkn::KIND_ID)
+				mn::print_to(out, "{}\n", ins);
+			else
+				mn::print_to(out, "  {}\n", ins);
+		}
 		mn::print_to(out, "END\n");
 	}
 

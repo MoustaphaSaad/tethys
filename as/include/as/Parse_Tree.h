@@ -234,12 +234,15 @@ namespace fmt
 		template <typename FormatContext>
 		auto format(const as::Ins &ins, FormatContext &ctx) {
 			format_to(ctx.out(), "{}", ins.op);
+			if(ins.op.kind == as::Tkn::KIND_ID)
+				format_to(ctx.out(), ":");
+
 			if(ins.dst.kind != as::Operand::KIND_NONE)
-				format_to(ctx.out(), "{}", ins.dst);
+				format_to(ctx.out(), " {}", ins.dst);
 			if(ins.src.kind != as::Operand::KIND_NONE)
-				format_to(ctx.out(), "{}", ins.src);
+				format_to(ctx.out(), " {}", ins.src);
 			if(ins.lbl)
-				format_to(ctx.out(), "{}", ins.lbl);
+				format_to(ctx.out(), " {}", ins.lbl);
 			return ctx.out();
 		}
 	};
