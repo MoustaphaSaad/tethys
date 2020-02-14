@@ -4665,3 +4665,12 @@ which should be mapped to
 `i32.mov r2 r0[r1]+8`
 
 i think this is good enough for our current needs, we can start adding them to our assembler in the next day.
+
+### Day-24
+
+After a second thought about the syntax above, you'll see that we have an ambiguity
+`i32.mov r0 [r1]` and `i32.mov r0[r1] r2`. The `r0 [r1]` and the `r0[r1]` will look the same to our parser since it ignores the whitespaces
+
+to avoid this ambiguity we'll need to change the syntax to something else
+
+`i32.mov r0 [r1[r2] + 128]` i think this syntax should be clear enough to humans and it will avoid the ambiguity
