@@ -111,44 +111,11 @@ namespace as
 	}
 
 	inline static void
-	emitter_reg_gen(Emitter& self, const Tkn& r)
+	emitter_reg_gen(Emitter& self, const Tkn& tkn)
 	{
-		switch(r.kind)
-		{
-		case Tkn::KIND_KEYWORD_R0:
-			vm::push8(self.out, uint8_t(vm::Reg_R0));
-			break;
-		case Tkn::KIND_KEYWORD_R1:
-			vm::push8(self.out, uint8_t(vm::Reg_R1));
-			break;
-		case Tkn::KIND_KEYWORD_R2:
-			vm::push8(self.out, uint8_t(vm::Reg_R2));
-			break;
-		case Tkn::KIND_KEYWORD_R3:
-			vm::push8(self.out, uint8_t(vm::Reg_R3));
-			break;
-		case Tkn::KIND_KEYWORD_R4:
-			vm::push8(self.out, uint8_t(vm::Reg_R4));
-			break;
-		case Tkn::KIND_KEYWORD_R5:
-			vm::push8(self.out, uint8_t(vm::Reg_R5));
-			break;
-		case Tkn::KIND_KEYWORD_R6:
-			vm::push8(self.out, uint8_t(vm::Reg_R6));
-			break;
-		case Tkn::KIND_KEYWORD_R7:
-			vm::push8(self.out, uint8_t(vm::Reg_R7));
-			break;
-		case Tkn::KIND_KEYWORD_IP:
-			vm::push8(self.out, uint8_t(vm::Reg_IP));
-			break;
-		case Tkn::KIND_KEYWORD_SP:
-			vm::push8(self.out, uint8_t(vm::Reg_SP));
-			break;
-		default:
-			assert(false && "unreachable");
-			break;
-		}
+		auto reg = tkn_to_reg(tkn);
+		assert(reg != vm::Reg_COUNT && "invalid register");
+		vm::push8(self.out, uint8_t(reg));
 	}
 
 	template<typename T>
@@ -164,228 +131,189 @@ namespace as
 		return c;
 	}
 
+	template<typename T>
+	inline static vm::SCALE_MODE
+	scale_mode_convert()
+	{
+		if constexpr (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>)
+			return vm::SCALE_MODE_1X;
+		else if constexpr (std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t>)
+			return vm::SCALE_MODE_2X;
+		else if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>)
+			return vm::SCALE_MODE_4X;
+		else if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>)
+			return vm::SCALE_MODE_8X;
+		else
+			static_assert(sizeof(T) == 0, "unsupported type");
+	}
+
+	template<typename T>
+	inline static vm::Operand
+	op_convert(const Operand &op)
+	{
+		switch(op.kind)
+		{
+		case Operand::KIND_REG:
+			return vm::op_reg(tkn_to_reg(op.reg));
+		case Operand::KIND_MEM:
+			return vm::op_mem(tkn_to_reg(op.mem.base), scale_mode_convert<T>(), op.mem.shift);
+		case Operand::KIND_IMM:
+			return vm::op_imm(convert_to<T>(op.imm));
+		case Operand::KIND_ID:
+			return vm::op_imm(T(0));
+		case Operand::KIND_NONE:
+		default:
+			return vm::op_none();
+		}
+	}
+
 	inline static void
 	emitter_ins_gen(Emitter& self, const Ins& ins, const Proc& proc, vm::Pkg& pkg)
 	{
 		switch(ins.op.kind)
 		{
-		case Tkn::KIND_KEYWORD_I8_LOAD:
+		case Tkn::KIND_KEYWORD_I8_MOV:
 		{
-			if(ins.src.kind == Tkn::KIND_ID)
-			{
-				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (8-bit) wide value"));
-				break;
-			}
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MOV8, dst, src);
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_U8_LOAD:
+		case Tkn::KIND_KEYWORD_U8_MOV:
 		{
-			if(ins.src.kind == Tkn::KIND_ID)
-			{
-				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (8-bit) wide value"));
-				break;
-			}
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MOV8, dst, src);
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_I16_LOAD:
+		case Tkn::KIND_KEYWORD_I16_MOV:
 		{
-			if(ins.src.kind == Tkn::KIND_ID)
-			{
-				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (16-bit) wide value"));
-				break;
-			}
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MOV16, dst, src);
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_U16_LOAD:
+		case Tkn::KIND_KEYWORD_U16_MOV:
 		{
-			if(ins.src.kind == Tkn::KIND_ID)
-			{
-				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (16-bit) wide value"));
-				break;
-			}
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MOV16, dst, src);
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_I32_LOAD:
+		case Tkn::KIND_KEYWORD_I32_MOV:
 		{
-			if(ins.src.kind == Tkn::KIND_ID)
-			{
-				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (32-bit) wide value"));
-				break;
-			}
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MOV32, dst, src);
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_U32_LOAD:
+		case Tkn::KIND_KEYWORD_U32_MOV:
 		{
-			if(ins.src.kind == Tkn::KIND_ID)
-			{
-				src_err(self.src, ins.src, mn::strf("unable to load the address (64-bit) into a (32-bit) wide value"));
-				break;
-			}
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MOV32, dst, src);
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_I64_LOAD:
+		case Tkn::KIND_KEYWORD_I64_MOV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (ins.src.kind == Tkn::KIND_ID)
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
+			auto [dst_offset, src_offset] = vm::ins_push(self.out, vm::Op_MOV64, dst, src);
+			if (ins.src.kind == Operand::KIND_ID)
 			{
-				src = vm::op_imm(int64_t(0));
-				auto [dst_offset, src_offset] = vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 				vm::pkg_reloc_add(
 					pkg,
 					mn::str_lit(proc.name.str),
 					src_offset,
-					mn::str_lit(ins.src.str)
+					mn::str_lit(ins.src.id.str)
 				);
-			}
-			else
-			{
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
-				vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 			}
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_U64_LOAD:
+		case Tkn::KIND_KEYWORD_U64_MOV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if(ins.src.kind == Tkn::KIND_ID)
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
+			auto [dst_offset, src_offset] = vm::ins_push(self.out, vm::Op_MOV64, dst, src);
+			if (ins.src.kind == Operand::KIND_ID)
 			{
-				src = vm::op_imm(uint64_t(0));
-				auto [dst_offset, src_offset] = vm::ins_push(self.out, vm::Op_MOV64, dst, src);
 				vm::pkg_reloc_add(
 					pkg,
 					mn::str_lit(proc.name.str),
 					src_offset,
-					mn::str_lit(ins.src.str)
+					mn::str_lit(ins.src.id.str)
 				);
 			}
-			else
-			{
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
-				vm::ins_push(self.out, vm::Op_MOV64, dst, src);
-			}
-			break;
 		}
 
 
 		case Tkn::KIND_KEYWORD_I8_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U8_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I16_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U16_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I32_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U32_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I64_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD64, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U64_ADD:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ADD64, dst, src);
 			break;
 		}
@@ -393,96 +321,64 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U8_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I16_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U16_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I32_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U32_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I64_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB64, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U64_SUB:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_SUB64, dst, src);
 			break;
 		}
@@ -490,96 +386,64 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IMUL8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U8_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MUL8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I16_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IMUL16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U16_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MUL16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I32_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IMUL32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U32_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MUL32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I64_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IMUL64, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U64_MUL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_MUL64, dst, src);
 			break;
 		}
@@ -587,96 +451,64 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IDIV8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U8_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_DIV8, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I16_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IDIV16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U16_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_DIV16, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I32_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IDIV32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U32_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_DIV32, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_I64_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_IDIV64, dst, src);
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_U64_DIV:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_DIV64, dst, src);
 			break;
 		}
@@ -684,12 +516,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -699,12 +527,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I16_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -714,12 +538,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I32_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -729,12 +549,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I64_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -744,12 +560,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U8_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -759,12 +571,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U16_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -774,12 +582,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U32_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -789,12 +593,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U64_JE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -805,12 +605,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -820,12 +616,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I16_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -835,12 +627,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I32_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -850,12 +638,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I64_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -865,12 +649,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U8_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -880,12 +660,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U16_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -895,12 +671,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U32_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -910,12 +682,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U64_JNE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JNE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -926,12 +694,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -941,12 +705,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I16_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -956,12 +716,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I32_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -971,12 +727,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I64_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -986,12 +738,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U8_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1001,12 +749,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U16_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1016,12 +760,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U32_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1031,12 +771,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U64_JL:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JL, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1047,12 +783,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1062,12 +794,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I16_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1077,12 +805,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I32_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1092,12 +816,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I64_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1107,12 +827,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U8_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1122,12 +838,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U16_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1137,12 +849,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U32_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1152,12 +860,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U64_JLE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JLE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1168,12 +872,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1183,12 +883,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I16_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1198,12 +894,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I32_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1213,12 +905,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I64_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1228,12 +916,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U8_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1243,12 +927,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U16_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1258,12 +938,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U32_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1273,12 +949,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U64_JG:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JG, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1289,12 +961,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1304,12 +972,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I16_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1319,12 +983,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I32_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1334,12 +994,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I64_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1349,12 +1005,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U8_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1364,12 +1016,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U16_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1379,12 +1027,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U32_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1394,12 +1038,8 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_U64_JGE:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 
 			auto [dst_offset, _] = vm::ins_push(self.out, vm::Op_JGE, vm::op_imm(uint64_t(0)), vm::op_none());
@@ -1457,88 +1097,16 @@ namespace as
 			break;
 		}
 
-		case Tkn::KIND_KEYWORD_I8_READ:
-		case Tkn::KIND_KEYWORD_U8_READ:
-		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_mem(tkn_to_reg(ins.src), vm::SCALE_MODE_1X, 0);
-			vm::ins_push(self.out, vm::Op_MOV8, dst, src);
-			break;
-		}
-
-		case Tkn::KIND_KEYWORD_I16_READ:
-		case Tkn::KIND_KEYWORD_U16_READ:
-		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_mem(tkn_to_reg(ins.src), vm::SCALE_MODE_1X, 0);
-			vm::ins_push(self.out, vm::Op_MOV16, dst, src);
-			break;
-		}
-
-		case Tkn::KIND_KEYWORD_I32_READ:
-		case Tkn::KIND_KEYWORD_U32_READ:
-		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_mem(tkn_to_reg(ins.src), vm::SCALE_MODE_1X, 0);
-			vm::ins_push(self.out, vm::Op_MOV32, dst, src);
-			break;
-		}
-
-		case Tkn::KIND_KEYWORD_I64_READ:
-		case Tkn::KIND_KEYWORD_U64_READ:
-		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::op_mem(tkn_to_reg(ins.src), vm::SCALE_MODE_1X, 0);
-			vm::ins_push(self.out, vm::Op_MOV64, dst, src);
-			break;
-		}
-
-		case Tkn::KIND_KEYWORD_I8_WRITE:
-		case Tkn::KIND_KEYWORD_U8_WRITE:
-		{
-			auto dst = vm::op_mem(tkn_to_reg(ins.dst), vm::SCALE_MODE_1X, 0);
-			auto src = vm::op_reg(tkn_to_reg(ins.src));
-			vm::ins_push(self.out, vm::Op_MOV8, dst, src);
-			break;
-		}
-
-		case Tkn::KIND_KEYWORD_I16_WRITE:
-		case Tkn::KIND_KEYWORD_U16_WRITE:
-		{
-			auto dst = vm::op_mem(tkn_to_reg(ins.dst), vm::SCALE_MODE_1X, 0);
-			auto src = vm::op_reg(tkn_to_reg(ins.src));
-			vm::ins_push(self.out, vm::Op_MOV16, dst, src);
-			break;
-		}
-
-		case Tkn::KIND_KEYWORD_I32_WRITE:
-		case Tkn::KIND_KEYWORD_U32_WRITE:
-		{
-			auto dst = vm::op_mem(tkn_to_reg(ins.dst), vm::SCALE_MODE_1X, 0);
-			auto src = vm::op_reg(tkn_to_reg(ins.src));
-			vm::ins_push(self.out, vm::Op_MOV32, dst, src);
-			break;
-		}
-
-		case Tkn::KIND_KEYWORD_I64_WRITE:
-		case Tkn::KIND_KEYWORD_U64_WRITE:
-		{
-			auto dst = vm::op_mem(tkn_to_reg(ins.dst), vm::SCALE_MODE_1X, 0);
-			auto src = vm::op_reg(tkn_to_reg(ins.src));
-			vm::ins_push(self.out, vm::Op_MOV64, dst, src);
-			break;
-		}
-
 		case Tkn::KIND_KEYWORD_PUSH:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
+			auto dst = op_convert<uint64_t>(ins.dst);
 			vm::ins_push(self.out, vm::Op_PUSH, dst, vm::op_none());
 			break;
 		}
 
 		case Tkn::KIND_KEYWORD_POP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
+			auto dst = op_convert<uint64_t>(ins.dst);
 			vm::ins_push(self.out, vm::Op_POP, dst, vm::op_none());
 			break;
 		}
@@ -1564,89 +1132,57 @@ namespace as
 
 		case Tkn::KIND_KEYWORD_I8_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int8_t>(ins.src));
+			auto dst = op_convert<int8_t>(ins.dst);
+			auto src = op_convert<int8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP8, dst, src);
 		}
 
 		case Tkn::KIND_KEYWORD_I16_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int16_t>(ins.src));
+			auto dst = op_convert<int16_t>(ins.dst);
+			auto src = op_convert<int16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP16, dst, src);
 		}
 
 		case Tkn::KIND_KEYWORD_I32_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int32_t>(ins.src));
+			auto dst = op_convert<int32_t>(ins.dst);
+			auto src = op_convert<int32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP32, dst, src);
 		}
 
 		case Tkn::KIND_KEYWORD_I64_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<int64_t>(ins.src));
+			auto dst = op_convert<int64_t>(ins.dst);
+			auto src = op_convert<int64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_ICMP64, dst, src);
 		}
 
 		case Tkn::KIND_KEYWORD_U8_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint8_t>(ins.src));
+			auto dst = op_convert<uint8_t>(ins.dst);
+			auto src = op_convert<uint8_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP8, dst, src);
 		}
 
 		case Tkn::KIND_KEYWORD_U16_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint16_t>(ins.src));
+			auto dst = op_convert<uint16_t>(ins.dst);
+			auto src = op_convert<uint16_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP16, dst, src);
 		}
 
 		case Tkn::KIND_KEYWORD_U32_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint32_t>(ins.src));
+			auto dst = op_convert<uint32_t>(ins.dst);
+			auto src = op_convert<uint32_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP32, dst, src);
 		}
 
 		case Tkn::KIND_KEYWORD_U64_CMP:
 		{
-			auto dst = vm::op_reg(tkn_to_reg(ins.dst));
-			auto src = vm::Operand{};
-			if (is_reg(ins.src.kind))
-				src = vm::op_reg(tkn_to_reg(ins.src));
-			else
-				src = vm::op_imm(convert_to<uint64_t>(ins.src));
+			auto dst = op_convert<uint64_t>(ins.dst);
+			auto src = op_convert<uint64_t>(ins.src);
 			vm::ins_push(self.out, vm::Op_CMP64, dst, src);
 		}
 

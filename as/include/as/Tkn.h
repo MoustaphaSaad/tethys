@@ -31,6 +31,12 @@ namespace as
 	};
 
 	inline static bool
+	is_numeric_constant(Tkn::KIND k)
+	{
+		return k == Tkn::KIND_INTEGER || k == Tkn::KIND_FLOAT;
+	}
+
+	inline static bool
 	is_reg(Tkn::KIND k)
 	{
 		return (k == Tkn::KIND_KEYWORD_R0 ||
@@ -63,16 +69,16 @@ namespace as
 	}
 
 	inline static bool
-	is_load(Tkn::KIND k)
+	is_mov(Tkn::KIND k)
 	{
-		return (k == Tkn::KIND_KEYWORD_I8_LOAD ||
-				k == Tkn::KIND_KEYWORD_I16_LOAD ||
-				k == Tkn::KIND_KEYWORD_I32_LOAD ||
-				k == Tkn::KIND_KEYWORD_I64_LOAD ||
-				k == Tkn::KIND_KEYWORD_U8_LOAD ||
-				k == Tkn::KIND_KEYWORD_U16_LOAD ||
-				k == Tkn::KIND_KEYWORD_U32_LOAD ||
-				k == Tkn::KIND_KEYWORD_U64_LOAD);
+		return (k == Tkn::KIND_KEYWORD_I8_MOV ||
+				k == Tkn::KIND_KEYWORD_I16_MOV ||
+				k == Tkn::KIND_KEYWORD_I32_MOV ||
+				k == Tkn::KIND_KEYWORD_I64_MOV ||
+				k == Tkn::KIND_KEYWORD_U8_MOV ||
+				k == Tkn::KIND_KEYWORD_U16_MOV ||
+				k == Tkn::KIND_KEYWORD_U32_MOV ||
+				k == Tkn::KIND_KEYWORD_U64_MOV);
 	}
 
 	inline static bool
@@ -163,27 +169,6 @@ namespace as
 				k == Tkn::KIND_KEYWORD_U16_JGE ||
 				k == Tkn::KIND_KEYWORD_U32_JGE ||
 				k == Tkn::KIND_KEYWORD_U64_JGE);
-	}
-
-	inline static bool
-	is_mem_transfer(Tkn::KIND k)
-	{
-		return (k == Tkn::KIND_KEYWORD_I8_READ ||
-				k == Tkn::KIND_KEYWORD_I16_READ ||
-				k == Tkn::KIND_KEYWORD_I32_READ ||
-				k == Tkn::KIND_KEYWORD_I64_READ ||
-				k == Tkn::KIND_KEYWORD_U8_READ ||
-				k == Tkn::KIND_KEYWORD_U16_READ ||
-				k == Tkn::KIND_KEYWORD_U32_READ ||
-				k == Tkn::KIND_KEYWORD_U64_READ ||
-				k == Tkn::KIND_KEYWORD_I8_WRITE ||
-				k == Tkn::KIND_KEYWORD_I16_WRITE ||
-				k == Tkn::KIND_KEYWORD_I32_WRITE ||
-				k == Tkn::KIND_KEYWORD_I64_WRITE ||
-				k == Tkn::KIND_KEYWORD_U8_WRITE ||
-				k == Tkn::KIND_KEYWORD_U16_WRITE ||
-				k == Tkn::KIND_KEYWORD_U32_WRITE ||
-				k == Tkn::KIND_KEYWORD_U64_WRITE);
 	}
 
 	inline static bool
