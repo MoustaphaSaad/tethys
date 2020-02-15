@@ -4935,18 +4935,19 @@ emitter_ins_gen(Emitter& self, const Ins& ins, const Proc& proc, vm::Pkg& pkg)
 now this should be it, i edited the unitttests so that it pass.
 After i passed the unittests i had a little conversation about the addressing modes with @3a2l (Ahmed Hesham) I'v designed the addressing modes part to mirror x64, but when you think about it x64 isn't that great after all.
 
->x64 is cisc.
->x64 is shit.
->risc is better.
->actually modern processors are essentially risc with a cisc translator.
->variable instruction length = shit.
->variable instruction length = multiple clock cycles = shit.
+>- x64 is cisc
+>- x64 is shit
+>- risc is better
+>- actually modern processors are essentially risc with a cisc translator
+>- variable instruction length = shit
+>- variable instruction length = multiple clock cycles = shit
 >
 >...
 >
->also risc can be trivially pipelined (partly because of instruction length and cycles/instructions).
->cisc is strictly sequential.
->parallelizing on a cisc is unnecessarily hard.
+>- also risc can be trivially pipelined (partly because of instruction length and cycles/instructions)
+>- cisc is strictly sequential
+>- parallelizing on a cisc is unnecessarily hard
+>
 >- 3a2l
 
 also we care a lot about the ease of implementation whether it's software or hardware one, so i think we should simplify the addressing modes down a bit and go with a more RISC-y design.
