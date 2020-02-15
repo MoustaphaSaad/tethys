@@ -136,49 +136,104 @@ namespace as
 		return Tkn{};
 	}
 
+	enum OPERAND_FLAG
+	{
+		OPERAND_FLAG_REG = 1 << 0,
+		OPERAND_FLAG_MEM = 1 << 1,
+		OPERAND_FLAG_IMM = 1 << 2,
+		OPERAND_FLAG_ID  = 1 << 3,
+	};
+
+	inline static Operand
+	parser_operand(Parser* self, int operand_flag)
+	{
+		auto tkn = parser_look(self);
+
+		if((operand_flag & OPERAND_FLAG_ID) && tkn.kind == Tkn::KIND_ID)
+		{
+			return operand_id(parser_eat(self));
+		}
+
+		if((operand_flag & OPERAND_FLAG_IMM) && is_numeric_constant(tkn.kind))
+		{
+			return operand_imm(parser_eat(self));
+		}
+
+		if((operand_flag & OPERAND_FLAG_MEM) && tkn.kind == Tkn::KIND_OPEN_BRACKET)
+		{
+			// eat the [
+			parser_eat(self);
+
+			Tkn base{}, index{}, shift{};
+			base = parser_reg(self);
+
+			if(parser_eat_kind(self, Tkn::KIND_OPEN_BRACKET))
+			{
+				index = parser_reg(self);
+				parser_eat_must(self, Tkn::KIND_CLOSE_BRACKET);
+			}
+
+			if(parser_eat_kind(self, Tkn::KIND_PLUS))
+			{
+				shift  = parser_eat_must(self, Tkn::KIND_INTEGER);
+			}
+
+			// eat the ]
+			parser_eat_must(self, Tkn::KIND_CLOSE_BRACKET);
+			return operand_mem(base, index, shift);
+		}
+
+		if((operand_flag & OPERAND_FLAG_REG) && is_reg(tkn.kind))
+		{
+			return operand_reg(parser_eat(self));
+		}
+
+		auto msg = mn::strf("Expected");
+		if(operand_flag & OPERAND_FLAG_REG)
+			msg = mn::strf(msg, " register");
+		if(operand_flag & OPERAND_FLAG_MEM)
+			msg = mn::strf(msg, (operand_flag & OPERAND_FLAG_REG) ? ", memory" : " memory");
+		if((operand_flag & OPERAND_FLAG_IMM) || (operand_flag & OPERAND_FLAG_ID))
+			msg = mn::strf(msg, (operand_flag & OPERAND_FLAG_MEM) ? ", or immediate value" : " immediate value");
+		msg = mn::strf(msg, " but found '{}'", tkn.str);
+
+		src_err(self->src, parser_eat(self), msg);
+
+		return Operand{};
+	}
+
 	inline static Ins
 	parser_ins(Parser* self)
 	{
 		Ins ins{};
 
 		Tkn op = parser_look(self);
-		if (is_load(op.kind))
+		if (is_mov(op.kind))
 		{
 			ins.op = parser_eat(self);
-			ins.dst = parser_reg(self);
-			ins.src = parser_imm(self, op.kind == Tkn::KIND_KEYWORD_U64_LOAD || op.kind == Tkn::KIND_KEYWORD_I64_LOAD);
+			ins.dst = parser_operand(self, OPERAND_FLAG_REG | OPERAND_FLAG_MEM);
+			auto op_flag = OPERAND_FLAG_REG | OPERAND_FLAG_MEM | OPERAND_FLAG_IMM;
+			if(op.kind == Tkn::KIND_KEYWORD_I64_MOV || op.kind == Tkn::KIND_KEYWORD_U64_MOV)
+				op_flag |= OPERAND_FLAG_ID;
+			ins.src = parser_operand(self, op_flag);
 		}
 		else if (is_arithmetic(op.kind))
 		{
 			ins.op = parser_eat(self);
-			ins.dst = parser_reg(self);
-			auto src = parser_look(self);
-			if (src.kind == Tkn::KIND_INTEGER || is_reg(src.kind))
-				ins.src = parser_eat(self);
-			else
-				src_err(self->src, src, mn::strf("expected an integer or a register"));
+			ins.dst = parser_operand(self, OPERAND_FLAG_REG | OPERAND_FLAG_MEM);
+			ins.src = parser_operand(self, OPERAND_FLAG_REG | OPERAND_FLAG_MEM | OPERAND_FLAG_IMM);
 		}
 		else if (is_cond_jump(op.kind))
 		{
 			ins.op = parser_eat(self);
-			ins.dst = parser_reg(self);
-			auto src = parser_look(self);
-			if(src.kind == Tkn::KIND_INTEGER || is_reg(src.kind))
-				ins.src = parser_eat(self);
-			else
-				src_err(self->src, src, mn::strf("expected an integer or a register"));
+			ins.dst = parser_operand(self, OPERAND_FLAG_REG | OPERAND_FLAG_MEM | OPERAND_FLAG_IMM);
+			ins.src = parser_operand(self, OPERAND_FLAG_REG | OPERAND_FLAG_MEM | OPERAND_FLAG_IMM);
 			ins.lbl = parser_eat_must(self, Tkn::KIND_ID);
-		}
-		else if(is_mem_transfer(op.kind))
-		{
-			ins.op = parser_eat(self);
-			ins.dst = parser_reg(self);
-			ins.src = parser_reg(self);
 		}
 		else if(is_push_pop(op.kind))
 		{
 			ins.op = parser_eat(self);
-			ins.dst = parser_reg(self);
+			ins.dst = parser_operand(self, OPERAND_FLAG_REG);
 		}
 		else if (is_pure_jump(op.kind))
 		{
@@ -188,12 +243,8 @@ namespace as
 		else if(is_cmp(op.kind))
 		{
 			ins.op = parser_eat(self);
-			ins.dst = parser_reg(self);
-			auto src = parser_look(self);
-			if(src.kind == Tkn::KIND_INTEGER || is_reg(src.kind))
-				ins.src = parser_eat(self);
-			else
-				src_err(self->src, src, mn::strf("expected an integer or a register"));
+			ins.dst = parser_operand(self, OPERAND_FLAG_REG | OPERAND_FLAG_MEM | OPERAND_FLAG_IMM);
+			ins.src = parser_operand(self, OPERAND_FLAG_REG | OPERAND_FLAG_MEM | OPERAND_FLAG_IMM);
 		}
 		else if (op.kind == Tkn::KIND_KEYWORD_CALL)
 		{
@@ -283,51 +334,10 @@ namespace as
 		mn::print_to(out, "PROC {}\n", proc->name.str);
 		for(const auto& ins: proc->ins)
 		{
-			if (is_load(ins.op.kind) ||
-				is_arithmetic(ins.op.kind))
-			{
-				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
-			}
-			else if(is_cond_jump(ins.op.kind))
-			{
-				mn::print_to(out, "  {} {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str, ins.lbl.str);
-			}
-			else if(is_mem_transfer(ins.op.kind))
-			{
-				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
-			}
-			else if(is_push_pop(ins.op.kind))
-			{
-				mn::print_to(out, "  {} {}\n", ins.op.str, ins.dst.str);
-			}
-			else if(is_pure_jump(ins.op.kind))
-			{
-				mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
-			}
-			else if(is_cmp(ins.op.kind))
-			{
-				mn::print_to(out, "  {} {} {}\n", ins.op.str, ins.dst.str, ins.src.str);
-			}
-			else if(ins.op.kind == Tkn::KIND_KEYWORD_CALL)
-			{
-				mn::print_to(out, "  {} {}\n", ins.op.str, ins.lbl.str);
-			}
-			else if(ins.op.kind == Tkn::KIND_KEYWORD_RET)
-			{
-				mn::print_to(out, "  {}\n", ins.op.str);
-			}
-			else if(ins.op.kind == Tkn::KIND_ID)
-			{
-				mn::print_to(out, "{}:\n", ins.op.str);
-			}
-			else if(ins.op.kind == Tkn::KIND_KEYWORD_HALT)
-			{
-				mn::print_to(out, "  {}\n", ins.op.str);
-			}
+			if(ins.op.kind == Tkn::KIND_ID)
+				mn::print_to(out, "{}\n", ins);
 			else
-			{
-				mn::print_to(out, "  INVALID OP\n");
-			}
+				mn::print_to(out, "  {}\n", ins);
 		}
 		mn::print_to(out, "END\n");
 	}

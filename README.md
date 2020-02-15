@@ -4674,3 +4674,277 @@ After a second thought about the syntax above, you'll see that we have an ambigu
 to avoid this ambiguity we'll need to change the syntax to something else
 
 `i32.mov r0 [r1[r2] + 128]` i think this syntax should be clear enough to humans and it will avoid the ambiguity
+
+### Day-25
+
+Today we'll do a bit of work in the assembler itself.
+
+Let's start with the token listing. We'll remove the `read`, `write`, and change the `load` instruction to `mov` instruction
+```C++
+...
+TOKEN(OPEN_BRACKET, "["), \
+TOKEN(CLOSE_BRACKET, "]"), \
+TOKEN(PLUS, "+"), \
+...
+TOKEN(KEYWORD_I8_MOV, "i8.mov"), \
+TOKEN(KEYWORD_I16_MOV, "i16.mov"), \
+TOKEN(KEYWORD_I32_MOV, "i32.mov"), \
+TOKEN(KEYWORD_I64_MOV, "i64.mov"), \
+TOKEN(KEYWORD_U8_MOV, "u8.mov"), \
+TOKEN(KEYWORD_U16_MOV, "u16.mov"), \
+TOKEN(KEYWORD_U32_MOV, "u32.mov"), \
+TOKEN(KEYWORD_U64_MOV, "u64.mov"), \
+...
+```
+
+then we'll need to add the new tokens to the scanner
+```C++
+inline static Tkn
+scanner_tkn(Scanner* self)
+{
+	...
+	case '[':
+		tkn.kind = Tkn::KIND_OPEN_BRACKET;
+		tkn.str = "[";
+		no_intern = true;
+		break;
+	case ']':
+		tkn.kind = Tkn::KIND_CLOSE_BRACKET;
+		tkn.str = "]";
+		no_intern = true;
+		break;
+	case '+':
+		tkn.kind = Tkn::KIND_PLUS;
+		tkn.str = "+";
+		no_intern = true;
+		break;
+	...
+}
+```
+
+then let's change the instruction struct to be able to model different addressing modes
+```C++
+struct Operand
+{
+	enum KIND
+	{
+		KIND_NONE,
+		KIND_REG,
+		KIND_MEM,
+		KIND_IMM,
+		KIND_ID
+	};
+
+	KIND kind;
+	union
+	{
+		Tkn reg;
+		struct
+		{
+			Tkn base;
+			Tkn index;
+			Tkn shift;
+		} mem;
+		Tkn imm;
+		Tkn id;
+	};
+};
+
+inline static Operand
+operand_reg(Tkn reg)
+{
+	Operand self{};
+	self.kind = Operand::KIND_REG;
+	self.reg = reg;
+	return self;
+}
+
+inline static Operand
+operand_mem(Tkn base, Tkn index, Tkn shift)
+{
+	Operand self{};
+	self.kind = Operand::KIND_MEM;
+	self.mem.base = base;
+	self.mem.index = index;
+	self.mem.shift = shift;
+	return self;
+}
+
+inline static Operand
+operand_imm(Tkn imm)
+{
+	Operand self{};
+	self.kind = Operand::KIND_IMM;
+	self.imm = imm;
+	return self;
+}
+
+inline static Operand
+operand_id(Tkn id)
+{
+	Operand self{};
+	self.kind = Operand::KIND_ID;
+	self.id = id;
+	return self;
+}
+
+struct Ins
+{
+	Tkn op;  // operation
+	Operand dst; // destination
+	Operand src; // source
+	Tkn lbl; // label
+};
+```
+
+then we'll need to add a master operand parsing function to the parser itself
+```C++
+enum OPERAND_FLAG
+{
+	OPERAND_FLAG_REG = 1 << 0,
+	OPERAND_FLAG_MEM = 1 << 1,
+	OPERAND_FLAG_IMM = 1 << 2,
+	OPERAND_FLAG_ID  = 1 << 3,
+};
+
+inline static Operand
+parser_operand(Parser* self, int operand_flag)
+{
+	auto tkn = parser_look(self);
+
+	if((operand_flag & OPERAND_FLAG_ID) && tkn.kind == Tkn::KIND_ID)
+	{
+		return operand_id(parser_eat(self));
+	}
+
+	if((operand_flag & OPERAND_FLAG_IMM) && is_numeric_constant(tkn.kind))
+	{
+		return operand_imm(parser_eat(self));
+	}
+
+	if((operand_flag & OPERAND_FLAG_MEM) && tkn.kind == Tkn::KIND_OPEN_BRACKET)
+	{
+		// eat the [
+		parser_eat(self);
+
+		Tkn base{}, index{}, shift{};
+		base = parser_reg(self);
+
+		if(parser_eat_kind(self, Tkn::KIND_OPEN_BRACKET))
+		{
+			index = parser_reg(self);
+			parser_eat_must(self, Tkn::KIND_CLOSE_BRACKET);
+		}
+
+		if(parser_eat_kind(self, Tkn::KIND_PLUS))
+		{
+			shift  = parser_eat_must(self, Tkn::KIND_INTEGER);
+		}
+
+		// eat the ]
+		parser_eat_must(self, Tkn::KIND_CLOSE_BRACKET);
+		return operand_mem(base, index, shift);
+	}
+
+	if((operand_flag & OPERAND_FLAG_REG) && is_reg(tkn.kind))
+	{
+		return operand_reg(parser_eat(self));
+	}
+
+	auto msg = mn::strf("Expected");
+	if(operand_flag & OPERAND_FLAG_REG)
+		msg = mn::strf(msg, " register");
+	if(operand_flag & OPERAND_FLAG_MEM)
+		msg = mn::strf(msg, (operand_flag & OPERAND_FLAG_REG) ? ", memory" : " memory");
+	if((operand_flag & OPERAND_FLAG_IMM) || (operand_flag & OPERAND_FLAG_ID))
+		msg = mn::strf(msg, (operand_flag & OPERAND_FLAG_MEM) ? ", or immediate value" : " immediate value");
+	msg = mn::strf(msg, " but found '{}'", tkn.str);
+
+	src_err(self->src, parser_eat(self), msg);
+
+	return Operand{};
+}
+```
+
+now, the last thing we should change is the code gen part
+```C++
+template<typename T>
+inline static vm::SCALE_MODE
+scale_mode_convert()
+{
+	if constexpr (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>)
+		return vm::SCALE_MODE_1X;
+	else if constexpr (std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t>)
+		return vm::SCALE_MODE_2X;
+	else if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>)
+		return vm::SCALE_MODE_4X;
+	else if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>)
+		return vm::SCALE_MODE_8X;
+	else
+		static_assert(sizeof(T) == 0, "unsupported type");
+}
+
+template<typename T>
+inline static vm::Operand
+op_convert(const Operand &op)
+{
+	switch(op.kind)
+	{
+	case Operand::KIND_REG:
+		return vm::op_reg(tkn_to_reg(op.reg));
+	case Operand::KIND_MEM:
+		return vm::op_mem(tkn_to_reg(op.mem.base), scale_mode_convert<T>(), op.mem.shift);
+	case Operand::KIND_IMM:
+		return vm::op_imm(convert_to<T>(op.imm));
+	case Operand::KIND_ID:
+		return vm::op_imm(T(0));
+	case Operand::KIND_NONE:
+	default:
+		return vm::op_none();
+	}
+}
+```
+
+now we can use the `op_convert` function to convert operands from assembler text representation to vm binary representation
+```C++
+inline static void
+emitter_ins_gen(Emitter& self, const Ins& ins, const Proc& proc, vm::Pkg& pkg)
+{
+	switch(ins.op.kind)
+	{
+	case Tkn::KIND_KEYWORD_I8_MOV:
+	{
+		auto dst = op_convert<int8_t>(ins.dst);
+		auto src = op_convert<int8_t>(ins.src);
+		vm::ins_push(self.out, vm::Op_MOV8, dst, src);
+		break;
+	}
+
+	case Tkn::KIND_KEYWORD_U8_MOV:
+	{
+		auto dst = op_convert<uint8_t>(ins.dst);
+		auto src = op_convert<uint8_t>(ins.src);
+		vm::ins_push(self.out, vm::Op_MOV8, dst, src);
+		break;
+	}
+	...
+	}
+}
+```
+
+now this should be it, i edited the unitttests so that it pass.
+After i passed the unittests i had a little conversation about the addressing modes with @3a2l (Ahmed Hesham) I'v designed the addressing modes part to mirror x64, but when you think about it x64 isn't that great after all.
+
+>x64 is cisc
+>x64 is shit
+>risc is better
+>actually modern processors are essentially risc with a cisc translator
+>variable instruction length = shit
+>variable instruction length = multiple clock cycles = shit
+>...
+>also risc can be trivially pipelined (partly because of instruction length and cycles/instructions)
+>cisc is strictly sequential
+>parallelizing on a cisc is unnecessarily hard
+>- 3a2l
+
+also we care a lot about the ease of implementation whether it's software or hardware one, so i think we should simplify the addressing modes down a bit and go with a more RISC-y design.
