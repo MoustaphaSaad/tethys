@@ -632,30 +632,29 @@ TEST_CASE("parse: mem read write")
 		i32.mov r0 3
 		i32.mov r1 4
 
-		i32.read r1 [sp]
+		i32.mov r1 [sp]
 		i32.add sp 4 ; free i32
 
-		i32.read r0 [sp]
+		i32.mov r0 [sp]
 		i32.add sp 4 ; free i32
 
 		halt
 	end
 	)""");
 
-	mn::print("{}\n", answer);
 	const char* expected =R"""(
 PROC main
   i32.mov r0 1
   i32.mov r1 2
   i32.sub sp 4
-  i32.write sp r0
+  i32.mov [sp] r0
   i32.sub sp 4
-  i32.write sp r1
+  i32.mov [sp] r1
   i32.mov r0 3
   i32.mov r1 4
-  i32.read r1 sp
+  i32.mov r1 [sp]
   i32.add sp 4
-  i32.read r0 sp
+  i32.mov r0 [sp]
   i32.add sp 4
   halt
 END
