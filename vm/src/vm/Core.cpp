@@ -1,6 +1,7 @@
 #include "vm/Core.h"
 #include "vm/Op.h"
 #include "vm/Util.h"
+#include "vm/Asm.h"
 
 #include <mn/IO.h>
 #include <mn/Defer.h>
@@ -109,20 +110,6 @@ namespace vm
 		{
 			auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
 			ptr = uintptr_t(self.r[R].ptr);
-			switch(ext.scale_mode)
-			{
-			case SCALE_MODE_1X: ptr *= 1; break;
-			case SCALE_MODE_2X: ptr *= 2; break;
-			case SCALE_MODE_4X: ptr *= 4; break;
-			case SCALE_MODE_8X: ptr *= 8; break;
-			default: assert(false && "unreachable"); break;
-			}
-
-			if(ext.is_shifted)
-			{
-				auto shift = pop64(self.bytecode, self.r[Reg_IP].u64);
-				ptr += shift;
-			}
 			break;
 		}
 		case ADDRESS_MODE_IMM:

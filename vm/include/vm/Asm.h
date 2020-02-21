@@ -8,6 +8,48 @@
 
 namespace vm
 {
+	// EXT = 0123 4567
+	// EXT[0, 1] = addressing mode, choose from [reg, imm, mem]
+	// add two extension bytes before each operand, [opcode] [dst ext] [dst] [src ext] [src]
+
+	enum ADDRESS_MODE: uint8_t
+	{
+		ADDRESS_MODE_REG,
+		ADDRESS_MODE_IMM,
+		ADDRESS_MODE_MEM,
+	};
+
+	struct Ext
+	{
+		ADDRESS_MODE address_mode;
+	};
+
+	constexpr inline uint8_t MASK_ADDRESS_MODE	= 0b1100'0000;
+
+	inline static Ext
+	ext_from_byte(uint8_t b)
+	{
+		Ext e{};
+		e.address_mode = ADDRESS_MODE((b & MASK_ADDRESS_MODE) >> 6);
+		return e;
+	}
+
+	inline static uint8_t
+	ext_to_byte(Ext e)
+	{
+		uint8_t b = 0;
+		b |= (uint8_t(e.address_mode) << 6) & MASK_ADDRESS_MODE;
+		return b;
+	}
+
+	inline static uint8_t
+	reg_ext_byte()
+	{
+		Ext e{};
+		e.address_mode = ADDRESS_MODE_REG;
+		return ext_to_byte(e);
+	}
+
 	inline static uint8_t
 	imm_ext_byte()
 	{
@@ -17,12 +59,10 @@ namespace vm
 	}
 
 	inline static uint8_t
-	mem_ext_byte(SCALE_MODE scale, uint64_t shift)
+	mem_ext_byte()
 	{
 		Ext e{};
 		e.address_mode = ADDRESS_MODE_MEM;
-		e.is_shifted = shift != 0;
-		e.scale_mode = scale;
 		return ext_to_byte(e);
 	}
 
@@ -47,12 +87,7 @@ namespace vm
 			uint16_t imm16;
 			uint32_t imm32;
 			uint64_t imm64;
-			struct
-			{
-				Reg reg;
-				SCALE_MODE scale;
-				uint64_t shift;
-			} mem;
+			Reg mem;
 		};
 	};
 
@@ -98,13 +133,11 @@ namespace vm
 	}
 
 	inline static Operand
-	op_mem(Reg r, SCALE_MODE scale, uint64_t shift)
+	op_mem(Reg r)
 	{
 		Operand op{};
 		op.kind = Operand::KIND_MEM;
-		op.mem.reg = r;
-		op.mem.scale = scale;
-		op.mem.shift = shift;
+		op.mem = r;
 		return op;
 	}
 
@@ -120,15 +153,16 @@ namespace vm
 		switch(op.kind)
 		{
 		case Operand::KIND_NONE:
-		case Operand::KIND_REG:
 			return 0;
+		case Operand::KIND_REG:
+			return reg_ext_byte();
 		case Operand::KIND_IMM8:
 		case Operand::KIND_IMM16:
 		case Operand::KIND_IMM32:
 		case Operand::KIND_IMM64:
 			return imm_ext_byte();
 		case Operand::KIND_MEM:
-			return mem_ext_byte(op.mem.scale, op.mem.shift);
+			return mem_ext_byte();
 		default:
 			assert(false && "unreachable");
 			return 0;
@@ -166,8 +200,7 @@ namespace vm
 			break;
 		case Operand::KIND_MEM:
 			offset = code.count;
-			push8(code, op.mem.reg);
-			if(op.mem.shift != 0) push64(code, op.mem.shift);
+			push8(code, op.mem);
 			break;
 		default:
 			assert(false && "unreachable");

@@ -4951,3 +4951,151 @@ After i passed the unittests i had a little conversation about the addressing mo
 >- 3a2l
 
 also we care a lot about the ease of implementation whether it's software or hardware one, so i think we should simplify the addressing modes down a bit and go with a more RISC-y design.
+
+### Day-26
+
+Today will simplify the address modes to be just [reg, mem, imm] modes only.
+
+first let's work on the vm itself and remove the additional info in the `Ext` struct
+```C++
+enum ADDRESS_MODE: uint8_t
+{
+	ADDRESS_MODE_REG,
+	ADDRESS_MODE_IMM,
+	ADDRESS_MODE_MEM,
+};
+
+struct Ext
+{
+	ADDRESS_MODE address_mode;
+};
+```
+
+then let's simplify the operand
+```C++
+struct Operand
+{
+	enum KIND
+	{
+		KIND_NONE,
+		KIND_REG,
+		KIND_IMM8,
+		KIND_IMM16,
+		KIND_IMM32,
+		KIND_IMM64,
+		KIND_MEM,
+	};
+	KIND kind;
+	union
+	{
+		Reg reg;
+		uint8_t imm8;
+		uint16_t imm16;
+		uint32_t imm32;
+		uint64_t imm64;
+		Reg mem;
+	};
+};
+```
+
+then let's remove the scale and shift from the `load_operand_uintptr` function
+```C++
+inline static uintptr_t
+load_operand_uintptr(Core& self, size_t imm_size)
+{
+	auto ext = pop_ext(self);
+	uintptr_t ptr = 0;
+	switch(ext.address_mode)
+	{
+	case ADDRESS_MODE_REG:
+	{
+		auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
+		ptr = (uintptr_t)&self.r[R].u8;
+		break;
+	}
+	case ADDRESS_MODE_MEM:
+	{
+		auto R = Reg(pop8(self.bytecode, self.r[Reg_IP].u64));
+		ptr = uintptr_t(self.r[R].ptr);
+		break;
+	}
+	case ADDRESS_MODE_IMM:
+	{
+		ptr = uintptr_t(self.bytecode.ptr);
+		ptr += self.r[Reg_IP].u64;
+		self.r[Reg_IP].u64 += imm_size;
+		break;
+	}
+	default: assert(false && "unreachable"); break;
+	}
+	return ptr;
+}
+```
+
+then let's address the scanner and remove the `+` token
+```C++
+case '+':
+	tkn.kind = Tkn::KIND_PLUS;
+	tkn.str = "+";
+	no_intern = true;
+	break;
+```
+
+then let's simplify the `parser_operand` function
+```C++
+if((operand_flag & OPERAND_FLAG_MEM) && tkn.kind == Tkn::KIND_OPEN_BRACKET)
+{
+	// eat the [
+	parser_eat(self);
+
+	auto base = parser_reg(self);
+
+	// eat the ]
+	parser_eat_must(self, Tkn::KIND_CLOSE_BRACKET);
+	return operand_mem(base);
+}
+```
+
+then let's address the parser operand
+```C++
+struct Operand
+{
+	enum KIND
+	{
+		KIND_NONE,
+		KIND_REG,
+		KIND_MEM,
+		KIND_IMM,
+		KIND_ID
+	};
+	KIND kind;
+	union
+	{
+		Tkn reg;
+		Tkn mem;
+		Tkn imm;
+		Tkn id;
+	};
+};
+```
+
+then the last thing to do is to remove the scaling and shifting from the code generation
+```C++
+template<typename T>
+inline static vm::SCALE_MODE
+scale_mode_convert()
+{
+	if constexpr (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>)
+		return vm::SCALE_MODE_1X;
+	else if constexpr (std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t>)
+		return vm::SCALE_MODE_2X;
+	else if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>)
+		return vm::SCALE_MODE_4X;
+	else if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>)
+		return vm::SCALE_MODE_8X;
+	else
+		static_assert(sizeof(T) == 0, "unsupported type");
+}
+```
+
+and that's it for today

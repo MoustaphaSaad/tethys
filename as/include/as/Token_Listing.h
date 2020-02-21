@@ -7,7 +7,6 @@
 	TOKEN(CLOSE_PAREN, ")"), \
 	TOKEN(OPEN_BRACKET, "["), \
 	TOKEN(CLOSE_BRACKET, "]"), \
-	TOKEN(PLUS, "+"), \
 	TOKEN(COMMA, ","), \
 	TOKEN(ID, "<ID>"), \
 	TOKEN(STRING, "<STRING>"), \

@@ -23,12 +23,7 @@ namespace as
 		union
 		{
 			Tkn reg;
-			struct
-			{
-				Tkn base;
-				Tkn index;
-				Tkn shift;
-			} mem;
+			Tkn mem;
 			Tkn imm;
 			Tkn id;
 		};
@@ -44,13 +39,11 @@ namespace as
 	}
 
 	inline static Operand
-	operand_mem(Tkn base, Tkn index, Tkn shift)
+	operand_mem(Tkn mem_reg)
 	{
 		Operand self{};
 		self.kind = Operand::KIND_MEM;
-		self.mem.base = base;
-		self.mem.index = index;
-		self.mem.shift = shift;
+		self.mem = mem_reg;
 		return self;
 	}
 
@@ -207,12 +200,7 @@ namespace fmt
 			case as::Operand::KIND_REG:
 				return format_to(ctx.out(), "{}", operand.reg);
 			case as::Operand::KIND_MEM:
-				format_to(ctx.out(), "[{}", operand.mem.base);
-				if(operand.mem.index)
-					format_to(ctx.out(), "[{}]", operand.mem.index);
-				if(operand.mem.shift)
-					format_to(ctx.out(), " + {}", operand.mem.shift);
-				return format_to(ctx.out(), "]");
+				return format_to(ctx.out(), "[{}]", operand.mem);
 			case as::Operand::KIND_IMM:
 				return format_to(ctx.out(), "{}", operand.imm);
 			case as::Operand::KIND_ID:

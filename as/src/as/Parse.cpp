@@ -164,23 +164,11 @@ namespace as
 			// eat the [
 			parser_eat(self);
 
-			Tkn base{}, index{}, shift{};
-			base = parser_reg(self);
-
-			if(parser_eat_kind(self, Tkn::KIND_OPEN_BRACKET))
-			{
-				index = parser_reg(self);
-				parser_eat_must(self, Tkn::KIND_CLOSE_BRACKET);
-			}
-
-			if(parser_eat_kind(self, Tkn::KIND_PLUS))
-			{
-				shift  = parser_eat_must(self, Tkn::KIND_INTEGER);
-			}
+			auto base = parser_reg(self);
 
 			// eat the ]
 			parser_eat_must(self, Tkn::KIND_CLOSE_BRACKET);
-			return operand_mem(base, index, shift);
+			return operand_mem(base);
 		}
 
 		if((operand_flag & OPERAND_FLAG_REG) && is_reg(tkn.kind))
