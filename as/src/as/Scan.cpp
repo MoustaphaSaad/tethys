@@ -361,11 +361,6 @@ namespace as
 				tkn.str = "]";
 				no_intern = true;
 				break;
-			case '+':
-				tkn.kind = Tkn::KIND_PLUS;
-				tkn.str = "+";
-				no_intern = true;
-				break;
 			case ',':
 				tkn.kind = Tkn::KIND_COMMA;
 				tkn.str = ",";

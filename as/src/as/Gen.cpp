@@ -132,22 +132,6 @@ namespace as
 	}
 
 	template<typename T>
-	inline static vm::SCALE_MODE
-	scale_mode_convert()
-	{
-		if constexpr (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>)
-			return vm::SCALE_MODE_1X;
-		else if constexpr (std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t>)
-			return vm::SCALE_MODE_2X;
-		else if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>)
-			return vm::SCALE_MODE_4X;
-		else if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>)
-			return vm::SCALE_MODE_8X;
-		else
-			static_assert(sizeof(T) == 0, "unsupported type");
-	}
-
-	template<typename T>
 	inline static vm::Operand
 	op_convert(const Operand &op)
 	{
@@ -156,7 +140,7 @@ namespace as
 		case Operand::KIND_REG:
 			return vm::op_reg(tkn_to_reg(op.reg));
 		case Operand::KIND_MEM:
-			return vm::op_mem(tkn_to_reg(op.mem.base), scale_mode_convert<T>(), op.mem.shift);
+			return vm::op_mem(tkn_to_reg(op.mem));
 		case Operand::KIND_IMM:
 			return vm::op_imm(convert_to<T>(op.imm));
 		case Operand::KIND_ID:
