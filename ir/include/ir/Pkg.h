@@ -7,9 +7,6 @@
 
 namespace ir
 {
-	using Proc_Bag = Bag<Proc>;
-	using Proc_ID  = typename Bag<Proc>::Handle;
-
 	struct Pkg
 	{
 		mn::Str name;

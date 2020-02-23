@@ -3,10 +3,19 @@ cmake_minimum_required(VERSION 3.9)
 # list the header files
 set(HEADER_FILES
 	include/ir/Bag.h
+	include/ir/Pkg.h
+	include/ir/Proc.h
+	include/ir/Type.h
+	include/ir/Ins.h
+	include/ir/Value.h
+	include/ir/Basic_Block.h
 )
 
 # list the source files
 set(SOURCE_FILES
+	src/ir/Type.cpp
+	src/ir/Proc.cpp
+	src/ir/Value.cpp
 )
 
 
