@@ -16,6 +16,7 @@ target_link_libraries(playground
 	MoustaphaSaad::vm
 	MoustaphaSaad::as
 	MoustaphaSaad::ffi
+	MoustaphaSaad::ir
 )
 
 # make it reflect the same structure as the one on disk

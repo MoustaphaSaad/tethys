@@ -5099,3 +5099,352 @@ scale_mode_convert()
 ```
 
 and that's it for today
+
+### Day-27
+
+Today we'll work on the Intermediate Representation(IR), The IR is needed since it's a more high level representation than our assembly and it enables us to do optimization passes on the code
+
+#### Intermediate Representation
+One of the great aspects about IR is that we use variables instead of registers. One of the downsides of registers is they are limited we only have 8 registers. IR on the other hand allows us to create an infinite amount of variables. But that comes with a condition that these variables aren't really variables at all we are only allowed to assign value to a variable once. This makes all our variables immutable and that makes our IR representation be in Static Single Assignment(SSA) form.
+
+let's see how we can make it work, let's check a simple add function
+```C++
+// create test package
+ir::Pkg pkg = ir::pkg_new("test");
+mn_defer(ir::pkg_free(pkg));
+
+// create add proc with this signature `int add(int a, int b)`
+ir::Proc* proc_add = ir::pkg_proc_new(pkg, "add", ir::type_proc(ir::type_int32, {ir::type_int32, ir::type_int32}));
+{
+	// get the arguments
+	ir::Value a = ir::proc_arg(proc_add, 0);
+	ir::Value b = ir::proc_arg(proc_add, 1);
+
+	// create the entry basic block of this function
+	ir::Basic_Block* entry = ir::proc_basic_block_new(proc_add);
+
+	// add the two args together
+	ir::Value res = ir::basic_block_ins_add(entry, a, b);
+	// return the result
+	ir::basic_block_ins_ret(entry, res);
+}
+```
+
+let's break this down:
+- Pkg: is simply a package of procedures, just like our assembly packages
+- Proc: is a procedure, same as our assembly
+- Basic_Block: a procedure consists of a list of basic blocks, basic block is a linear path in the code (list of instructions) without any jumps or returns. A Function can consist of many basic blocks and they can be connected to each other via jumps. Basic blocks always end with a jump or a return instruction
+- Ins: is a simple operation done on values. it maps directly to our assembly instructions
+- Value: is a value which can be proc argument, a result of some instruction, or an immediate value
+
+IR will be a great platform from which we can jump to either native assembly or our own VMs assembly.
+
+that's all what we need to do, let's work on the code
+
+#### Basic Types
+let's start by introducing our type representation in the IR library
+
+```C++
+struct Type
+{
+	enum KIND
+	{
+		KIND_VOID,
+		KIND_INT8,
+		KIND_INT16,
+		KIND_INT32,
+		KIND_INT64,
+		KIND_UINT8,
+		KIND_UINT16,
+		KIND_UINT32,
+		KIND_UINT64,
+		KIND_FLOAT32,
+		KIND_FLOAT64,
+		KIND_PTR,
+		KIND_ARRAY,
+		KIND_PROC,
+	};
+
+	KIND kind;
+	size_t size;
+	size_t alignment;
+	union
+	{
+		struct
+		{
+			Type* base;
+		} ptr;
+
+		struct
+		{
+			Type* base; size_t count;
+		} array;
+
+		struct
+		{
+			Type* ret;
+			mn::Buf<Type*> args;
+		} proc;
+	};
+};
+```
+
+As you can see we support C basic types, the basic numeric types + void type is pretty much constants so we'll make them global variables we can refer to them from anywhere, and we'll dynamically allocate all the other types
+
+```C++
+extern IR_EXPORT Type* type_void;
+extern IR_EXPORT Type* type_int8;
+extern IR_EXPORT Type* type_int16;
+extern IR_EXPORT Type* type_int32;
+extern IR_EXPORT Type* type_int64;
+extern IR_EXPORT Type* type_uint8;
+extern IR_EXPORT Type* type_uint16;
+extern IR_EXPORT Type* type_uint32;
+extern IR_EXPORT Type* type_uint64;
+extern IR_EXPORT Type* type_float32;
+extern IR_EXPORT Type* type_float64;
+```
+
+Then of course we'll do construction functions for other types
+```C++
+Type*
+type_ptr(Type* base)
+{
+	auto self = mn::alloc<Type>();
+	self->kind = Type::KIND_PTR;
+	self->size = sizeof(void*);
+	self->alignment = alignof(void*);
+	self->ptr.base = base;
+	return self;
+}
+
+Type*
+type_array(Type* base, size_t count)
+{
+	auto self = mn::alloc<Type>();
+	self->kind = Type::KIND_ARRAY;
+	self->size = base->size * count;
+	self->alignment = base->alignment;
+	self->array.base = base;
+	self->array.count = count;
+	return self;
+}
+
+Type*
+type_proc(Type* ret, mn::Buf<Type*> args)
+{
+	auto self = mn::alloc<Type>();
+	self->kind = Type::KIND_PROC;
+	self->size = sizeof(void*);
+	self->alignment = alignof(void*);
+	self->proc.ret = ret;
+	self->proc.args = args;
+	return self;
+}
+
+void
+type_free(Type* self)
+{
+	switch(self->kind)
+	{
+	case Type::KIND_VOID:
+	case Type::KIND_INT8:
+	case Type::KIND_INT16:
+	case Type::KIND_INT32:
+	case Type::KIND_INT64:
+	case Type::KIND_UINT8:
+	case Type::KIND_UINT16:
+	case Type::KIND_UINT32:
+	case Type::KIND_UINT64:
+	case Type::KIND_FLOAT32:
+	case Type::KIND_FLOAT64:
+		//do nothing
+		break;
+	case Type::KIND_PTR:
+		type_free(self->ptr.base);
+		mn::free(self);
+		break;
+	case Type::KIND_ARRAY:
+		type_free(self->array.base);
+		mn::free(self);
+		break;
+	case Type::KIND_PROC:
+		type_free(self->proc.ret);
+		destruct(self->proc.args);
+		mn::free(self);
+		break;
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+}
+```
+
+#### Values
+
+now let's get to values
+
+```C++
+struct Value
+{
+	enum KIND
+	{
+		KIND_NONE,
+		KIND_ARG,
+		KIND_INS,
+		KIND_IMM,
+	};
+
+	KIND kind;
+	Type* type;
+	union
+	{
+		struct
+		{
+			Proc* proc;
+			// index of the argument in the function
+			size_t index;
+		} arg;
+
+		Ins* ins;
+
+		union
+		{
+			int8_t i8;
+			int16_t i16;
+			int32_t i32;
+			int64_t i64;
+			uint8_t u8;
+			uint16_t u16;
+			uint32_t u32;
+			uint64_t u64;
+			float f32;
+			double f64;
+		} imm;
+	};
+};
+```
+
+they are pretty simple as you can see
+
+#### Package
+
+now let's do packages. A Package has a name and a list of procedures.
+```C++
+struct Pkg
+{
+	mn::Str name;
+	mn::Pool proc_pool;
+	mn::Buf<Proc*> procs;
+};
+```
+
+you can only create new procedure using a package.
+
+```C++
+Proc*
+pkg_proc_new(Pkg& self, const mn::Str& name, Type* type)
+{
+	auto proc = (Proc*)mn::pool_get(self.proc_pool);
+	proc->name = mn::str_clone(name);
+	proc->type = type;
+	proc->ins_pool = mn::pool_new(sizeof(Ins), 64);
+	proc->block_pool = mn::pool_new(sizeof(Basic_Block), 64);
+	proc->blocks = mn::buf_new<Basic_Block*>();
+
+	mn::buf_push(self.procs, proc);
+	return proc;
+}
+```
+
+#### Procedure
+
+now procedures consists of a name and a type, and a list of basic blocks
+```C++
+struct Proc
+{
+	mn::Str name;
+	Type* type;
+	mn::Pool ins_pool;
+	mn::Pool block_pool;
+	mn::Buf<Basic_Block*> blocks;
+};
+```
+
+you can only create a basic block using a procedure
+```C++
+Basic_Block*
+proc_basic_block_new(Proc* proc)
+{
+	auto bb = (Basic_Block*)mn::pool_get(proc->block_pool);
+	bb->proc = proc;
+	bb->code = mn::buf_new<Ins*>();
+
+	mn::buf_push(proc->blocks, bb);
+	return bb;
+}
+```
+
+#### Basic Block
+
+basic blocks a just a list of instructions
+```C++
+struct Basic_Block
+{
+	Proc* proc;
+	mn::Buf<Ins*> code;
+};
+```
+
+and you can only push instructions to basic blocks
+```C++
+Value
+basic_block_ins_add(Basic_Block* bb, Value a, Value b)
+{
+	auto ins = (Ins*)mn::pool_get(bb->proc->ins_pool);
+	*ins = ins_add(a, b);
+	mn::buf_push(bb->code, ins);
+
+	auto type = ins->op_add.a.type;
+	return value_ins(type, ins);
+}
+
+Value
+basic_block_ins_ret(Basic_Block* bb, Value v)
+{
+	auto ins = (Ins*)mn::pool_get(bb->proc->ins_pool);
+	*ins = ins_ret(v);
+	mn::buf_push(bb->code, ins);
+
+	auto type = ins->op_ret.type;
+	return value_ins(type, ins);
+}
+```
+
+#### Instructions
+
+instructions are pretty simple they consist of an opcode and its operands
+```C++
+struct Ins
+{
+	enum OP
+	{
+		OP_IGL,
+		OP_ADD,
+		OP_RET,
+	};
+
+	OP op;
+	union
+	{
+		struct
+		{
+			Value a, b;
+		} op_add;
+
+		Value op_ret;
+	};
+};
+```
+
+and that's it now we can represent our simple add function using our own little IR representation, maybe tomorrow we'll convert this IR to our VM's assembly
