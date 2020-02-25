@@ -94,13 +94,16 @@ namespace ir
 			break;
 		case Type::KIND_PTR:
 			type_free(self->ptr.base);
+			mn::free(self);
 			break;
 		case Type::KIND_ARRAY:
 			type_free(self->array.base);
+			mn::free(self);
 			break;
 		case Type::KIND_PROC:
 			type_free(self->proc.ret);
 			destruct(self->proc.args);
+			mn::free(self);
 			break;
 		default:
 			assert(false && "unreachable");

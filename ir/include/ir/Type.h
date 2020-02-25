@@ -70,6 +70,12 @@ namespace ir
 	IR_EXPORT Type*
 	type_proc(Type* ret, mn::Buf<Type*> args);
 
+	inline static Type*
+	type_proc(Type* ret, const std::initializer_list<Type*>& args)
+	{
+		return type_proc(ret, mn::buf_lit(args));
+	}
+
 	IR_EXPORT void
 	type_free(Type* self);
 

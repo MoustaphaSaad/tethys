@@ -3,24 +3,23 @@
 namespace ir
 {
 	Value
-	value_arg(Type* type, Proc_ID proc, size_t ix)
+	value_arg(Type* type, Proc* proc, size_t ix)
 	{
 		Value self{};
 		self.kind = Value::KIND_ARG;
 		self.type = type;
-		self.arg.proc_id = proc;
+		self.arg.proc = proc;
 		self.arg.index = ix;
 		return self;
 	}
 
 	Value
-	value_ins(Type* type, Proc_ID proc, Ins_ID id)
+	value_ins(Type* type, Ins* ins)
 	{
 		Value self{};
 		self.kind = Value::KIND_INS;
 		self.type = type;
-		self.ins.proc_id = proc;
-		self.ins.id = id;
+		self.ins = ins;
 		return self;
 	}
 }

@@ -1,11 +1,13 @@
 #pragma once
 
 #include "ir/Exports.h"
-#include "ir/Handles.h"
 #include "ir/Type.h"
 
 namespace ir
 {
+	struct Proc;
+	struct Ins;
+
 	struct Value
 	{
 		enum KIND
@@ -23,16 +25,12 @@ namespace ir
 		{
 			struct
 			{
-				Proc_ID proc_id;
+				Proc* proc;
 				// index of the argument in the function
 				size_t index;
 			} arg;
 
-			struct
-			{
-				Proc_ID proc_id;
-				Ins_ID id;
-			} ins;
+			Ins* ins;
 
 			union
 			{
@@ -50,16 +48,16 @@ namespace ir
 
 			struct
 			{
-				Proc_ID id;
+				Proc* proc;
 			} proc;
 		};
 	};
 
 	IR_EXPORT Value
-	value_arg(Type* type, Proc_ID proc, size_t ix);
+	value_arg(Type* type, Proc* proc, size_t ix);
 
 	IR_EXPORT Value
-	value_ins(Type* type, Proc_ID proc, Ins_ID id);
+	value_ins(Type* type, Ins* ins);
 
 	template<typename T>
 	inline static Value
