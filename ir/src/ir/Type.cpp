@@ -20,21 +20,21 @@ namespace ir
 		return self;
 	}
 
-	#define BASIC_TYPE(kind, type) \
-	static Type _basic_type_##type = _generate_basic_type<type>(kind); \
-	Type* type_##type = &_basic_type_##type
+	#define BASIC_TYPE(kind, type, name) \
+	static Type _basic_type_##name = _generate_basic_type<type>(kind); \
+	Type* type_##name = &_basic_type_##name
 
-	BASIC_TYPE(Type::KIND_VOID, void);
-	BASIC_TYPE(Type::KIND_INT8, int8_t);
-	BASIC_TYPE(Type::KIND_INT16, int16_t);
-	BASIC_TYPE(Type::KIND_INT32, int32_t);
-	BASIC_TYPE(Type::KIND_INT64, int64_t);
-	BASIC_TYPE(Type::KIND_UINT8, uint8_t);
-	BASIC_TYPE(Type::KIND_UINT16, uint16_t);
-	BASIC_TYPE(Type::KIND_UINT32, uint32_t);
-	BASIC_TYPE(Type::KIND_UINT64, uint64_t);
-	BASIC_TYPE(Type::KIND_FLOAT32, float);
-	BASIC_TYPE(Type::KIND_FLOAT64, double);
+	BASIC_TYPE(Type::KIND_VOID, void, void);
+	BASIC_TYPE(Type::KIND_INT8, int8_t, int8);
+	BASIC_TYPE(Type::KIND_INT16, int16_t, int16);
+	BASIC_TYPE(Type::KIND_INT32, int32_t, int32);
+	BASIC_TYPE(Type::KIND_INT64, int64_t, int64);
+	BASIC_TYPE(Type::KIND_UINT8, uint8_t, uint8);
+	BASIC_TYPE(Type::KIND_UINT16, uint16_t, uint16);
+	BASIC_TYPE(Type::KIND_UINT32, uint32_t, uint32);
+	BASIC_TYPE(Type::KIND_UINT64, uint64_t, uint64);
+	BASIC_TYPE(Type::KIND_FLOAT32, float, float32);
+	BASIC_TYPE(Type::KIND_FLOAT64, double, float64);
 
 	#undef BASIC_TYPE
 
